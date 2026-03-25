@@ -1,10 +1,13 @@
 /* ============================================
-   CEO PERFORMANCE SUITE — V8 App
-   All 8 dashboards, 6+ charts each
+   CEO PERFORMANCE SUITE — V9 Consolidated
+   4 dense charts per tab, multi-metric views
    ============================================ */
 
 (function () {
   "use strict";
+
+  // Register datalabels plugin globally
+  Chart.register(ChartDataLabels);
 
   // ── Palette ──
   const C = {
@@ -19,11 +22,11 @@
     red: "#EF4444",
     redFade: "rgba(239,68,68,0.12)",
     purple: "#A855F7",
+    purpleFade: "rgba(168,85,247,0.15)",
     text: "#F1F5F9",
     textSec: "#94A3B8",
     textMuted: "#64748B",
-    gridLine: "rgba(148,163,184,0.07)",
-    gridLineBold: "rgba(148,163,184,0.12)",
+    gridLine: "rgba(148,163,184,0.04)",
   };
 
   // ── Helpers ──
@@ -39,1359 +42,2375 @@
   };
   const fmtDollar = (v) => "$" + Math.round(v).toLocaleString();
   const fmtNum = (v) => Math.round(v).toLocaleString();
-  const fmtPct = (v) => v.toFixed(1) + "%";
-  const fmtX = (v) => v.toFixed(2) + "x";
+  const fmtPct = (v) => (v != null ? v.toFixed(1) + "%" : "—");
+  const fmtX = (v) => (v != null ? v.toFixed(2) + "x" : "—");
 
-  // Chart instance storage
+  // ── Chart Management ──
   let charts = [];
   const destroyCharts = () => {
-    charts.forEach((c) => { try { c.destroy(); } catch(e){} });
+    charts.forEach((c) => { try { c.destroy(); } catch (e) {} });
     charts = [];
   };
+  const mkChart = (id, cfg) => {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const c = new Chart(el.getContext("2d"), cfg);
+    charts.push(c);
+    return c;
+  };
 
-  // ── Chart defaults ──
-  Chart.defaults.font.family = "'Inter', sans-serif";
-  Chart.defaults.font.size = 11;
-  Chart.defaults.color = C.textSec;
-  Chart.defaults.plugins.legend.labels.usePointStyle = true;
-  Chart.defaults.plugins.legend.labels.pointStyleWidth = 8;
-  Chart.defaults.plugins.legend.labels.boxHeight = 7;
-  Chart.defaults.plugins.legend.labels.padding = 14;
-  Chart.defaults.plugins.tooltip.backgroundColor = "rgba(15,23,42,0.95)";
-  Chart.defaults.plugins.tooltip.borderColor = "rgba(148,163,184,0.2)";
-  Chart.defaults.plugins.tooltip.borderWidth = 1;
-  Chart.defaults.plugins.tooltip.cornerRadius = 8;
-  Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.titleFont = { weight: "600", size: 12 };
-  Chart.defaults.plugins.tooltip.bodyFont = { size: 11 };
-  Chart.defaults.elements.bar.borderRadius = 4;
-  Chart.defaults.elements.line.tension = 0.35;
-  Chart.defaults.elements.point.radius = 0;
-  Chart.defaults.elements.point.hoverRadius = 5;
-  Chart.defaults.responsive = true;
-  Chart.defaults.maintainAspectRatio = true;
+  // ── Shared Chart Defaults ──
+  const baseScaleX = {
+    ticks: { color: C.textMuted, font: { size: 9, family: "Inter" }, maxRotation: 45, autoSkip: true, autoSkipPadding: 8 },
+    grid: { display: false },
+  };
+  const baseScaleY = (title, fmt) => ({
+    beginAtZero: true,
+    title: { display: !!title, text: title || "", color: C.textMuted, font: { size: 10, family: "Inter" } },
+    ticks: {
+      color: C.textMuted,
+      font: { size: 9, family: "Inter" },
+      callback: fmt || function (v) { return v >= 1000 ? fmtK(v) : v; },
+    },
+    grid: { color: C.gridLine },
+  });
+  const baseTooltip = {
+    mode: "index",
+    intersect: false,
+    backgroundColor: "rgba(15,23,42,0.95)",
+    titleColor: "#F1F5F9",
+    bodyColor: "#94A3B8",
+    borderColor: "rgba(148,163,184,0.2)",
+    borderWidth: 1,
+    titleFont: { size: 12, weight: "600", family: "Inter" },
+    bodyFont: { size: 11, family: "Inter" },
+    padding: 10,
+    cornerRadius: 8,
+  };
+  const noDatalabels = { datalabels: { display: false } };
+  const barRadius = 4;
 
-  // ── Scale helpers ──
-  function makeScaleX() {
-    return {
-      grid: { color: C.gridLine, drawBorder: false },
-      ticks: { maxRotation: 45, font: { size: 10 } },
-    };
-  }
-  function makeScaleY(label, prefix, cb) {
-    prefix = prefix || "$";
-    const s = {
-      grid: { color: C.gridLine, drawBorder: false },
-      ticks: {
-        font: { size: 10 },
-        callback: cb || function (v) {
-          if (prefix === "$") return fmtK(v);
-          if (prefix === "x") return v.toFixed(1) + "x";
-          if (prefix === "%") return v + "%";
-          return v.toLocaleString();
-        },
-      },
-    };
-    if (label) s.title = { display: true, text: label, font: { size: 10, weight: "500" }, color: C.textMuted };
-    return s;
-  }
-  function makeScaleYRight(label, prefix, cb) {
-    const s = makeScaleY(label, prefix, cb);
-    s.position = "right";
-    s.grid = { drawOnChartArea: false };
-    return s;
-  }
+  // Formatter for datalabels
+  const dlFmtK = (v) => {
+    if (v === undefined || v === null || v === 0) return "";
+    if (Math.abs(v) >= 1e6) return "$" + (v / 1e6).toFixed(1) + "M";
+    if (Math.abs(v) >= 1e3) return "$" + (v / 1e3).toFixed(0) + "K";
+    return "$" + Math.round(v);
+  };
+  const dlFmtX = (v) => v ? v.toFixed(2) + "x" : "";
+  const dlFmtPct = (v) => v ? v.toFixed(0) + "%" : "";
+  const dlFmtDollar = (v) => v ? "$" + Math.round(v) : "";
 
-  // Gradient helper
-  function makeGradient(ctx, hexColor, alpha1, alpha2) {
-    alpha1 = alpha1 || 0.35;
-    alpha2 = alpha2 !== undefined ? alpha2 : 0;
-    const r = parseInt(hexColor.slice(1,3),16), g = parseInt(hexColor.slice(3,5),16), b = parseInt(hexColor.slice(5,7),16);
-    const grd = ctx.createLinearGradient(0, 0, 0, ctx.canvas.clientHeight || 300);
-    grd.addColorStop(0, "rgba(" + r + "," + g + "," + b + "," + alpha1 + ")");
-    grd.addColorStop(1, "rgba(" + r + "," + g + "," + b + "," + alpha2 + ")");
-    return grd;
-  }
+  // ── Sidebar / Mobile Navigation ──
+  let activeDb = 0;
+  let activeSubTab = 0;
+  const navItems = document.querySelectorAll(".nav-item");
+  const container = $("#dashboardContainer");
 
-  // Create chart convenience
-  function mkChart(canvasId, config) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return null;
-    const ch = new Chart(canvas.getContext("2d"), config);
-    charts.push(ch);
-    return ch;
-  }
-
-  // ── HTML Builders ──
-  function kpiHTML(label, value) {
-    return '<div class="kpi-card"><div class="kpi-label">' + label + '</div><div class="kpi-value">' + value + '</div></div>';
-  }
-  function kpiCompareHTML(label, rVal, iVal) {
-    return '<div class="kpi-card"><div class="kpi-label">' + label + '</div><div class="kpi-compare"><div class="kpi-compare-item"><span class="kpi-compare-label">Rosen</span><span class="kpi-compare-value rosen">' + rVal + '</span></div><div class="kpi-compare-item"><span class="kpi-compare-label">IIBS</span><span class="kpi-compare-value iibs">' + iVal + '</span></div></div></div>';
-  }
-  function chartCardHTML(id, title, height) {
-    height = height || 280;
-    return '<div class="chart-card"><div class="chart-card-title">' + title + '</div><div class="chart-wrap"><canvas id="' + id + '" height="' + height + '"></canvas></div></div>';
-  }
-
-  // ── Table Builder ──
-  function tableHTML(title, headers, rows, options) {
-    options = options || {};
-    var cyanCol = options.cyanCol; // column index for cyan highlight
-    var repNamesCol = options.repNamesCol; // column index for rep names
-    var html = '<div class="data-table-card"><div class="chart-card-title">' + title + '</div><div class="data-table-wrap"><table class="data-table"><thead><tr>';
-    headers.forEach(function(h) { html += '<th>' + h + '</th>'; });
-    html += '</tr></thead><tbody>';
-    rows.forEach(function(row) {
-      html += '<tr>';
-      row.forEach(function(cell, ci) {
-        var cls = '';
-        if (ci === cyanCol) cls = ' class="cyan-highlight"';
-        else if (ci === repNamesCol) cls = ' class="rep-names"';
-        html += '<td' + cls + '>' + cell + '</td>';
-      });
-      html += '</tr>';
+  navItems.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const db = parseInt(btn.dataset.db);
+      navItems.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeDb = db;
+      activeSubTab = 0;
+      render();
+      closeMobileSidebar();
     });
-    html += '</tbody></table></div></div>';
-    return html;
-  }
-
-  // ══════════════════════════════════════════════
-  //  SCHOOL DASHBOARD BUILDER (DB0 Rosen, DB1 IIBS)
-  // ══════════════════════════════════════════════
-  function renderSchoolDB(pre, schoolName) {
-    var netChurnAvg = avg(col(pre + "net_churn"));
-    var netSCAvg = avg(col(pre + "net_sc"));
-    var mroiAvg = avg(col(pre + "mroi"));
-    var roasAvg = avg(col(pre + "roas"));
-    var rphAvg = avg(col(pre + "rph"));
-    var hoursAvg = avg(col("hours"));
-
-    // Build table rows
-    var tableRows = D.map(function(d) {
-      return [
-        d.short,
-        fmtDollar(d[pre + "net_churn"]),
-        fmtDollar(d[pre + "net_sc"]),
-        fmtX(d[pre + "mroi"]),
-        fmtX(d[pre + "roas"]),
-        "$" + d[pre + "rph"].toFixed(1),
-        fmtNum(d.hours),
-        fmtNum(d.shifts),
-        fmtDollar(d[pre + "sales"]),
-        fmtDollar(d[pre + "stat_rev"]),
-        fmtDollar(d[pre + "cost"]),
-        "$" + Math.round(d[pre + "cpa"]),
-        "$" + d[pre + "cpl"].toFixed(1),
-        fmtNum(d[pre + "acq"]),
-        d[pre + "conv"].toFixed(1) + "%",
-        fmtNum(d[pre + "leads"]),
-        fmtNum(d[pre + "retries"])
-      ];
-    });
-
-    var uid = pre === "r_" ? "r" : "i";
-
-    return '<h1 class="db-title">' + schoolName + ' — Full Monthly Performance</h1>' +
-      '<div class="kpi-row cols-6">' +
-        kpiHTML("Avg Net Rev Post Churn", fmtK(netChurnAvg)) +
-        kpiHTML("Avg Net Rev (S-C)", fmtK(netSCAvg)) +
-        kpiHTML("Avg mROI", fmtX(mroiAvg)) +
-        kpiHTML("Avg ROAS", fmtX(roasAvg)) +
-        kpiHTML("Avg Rev/Hr", "$" + rphAvg.toFixed(0)) +
-        kpiHTML("Avg Hours", fmtNum(hoursAvg)) +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        '<div class="span-2">' + chartCardHTML(uid + "c1", "Revenue Waterfall — Sales Rev, Net (S-C), Net Post Churn") + '</div>' +
-        chartCardHTML(uid + "c2", "mROI & ROAS — 26-Month Trend") +
-        chartCardHTML(uid + "c3", "Hours & Shifts vs Rev/Hr") +
-        chartCardHTML(uid + "c4", "Acquisitions & Conversion Rate") +
-        chartCardHTML(uid + "c5", "Cost Efficiency — Media Cost, CPA, CPL") +
-        chartCardHTML(uid + "c6", "Leads & Retries") +
-        chartCardHTML(uid + "c7", "Stat CRM Rev vs Sales Rev") +
-      '</div>' +
-      tableHTML("Monthly Summary — All " + schoolName + " Metrics",
-        ["Month","Net Rev Post Churn","Net Rev (S-C)","mROI","ROAS","Rev/Hr","Hours","Shifts","Sales Rev","Stat Rev","Cost","CPA","CPL","Acq","Conv%","Leads","Retries"],
-        tableRows
-      );
-  }
-
-  function chartsSchoolDB(pre) {
-    var uid = pre === "r_" ? "r" : "i";
-    var accentA = pre === "r_" ? C.indigo : C.cyan;
-    var accentB = pre === "r_" ? C.cyan : C.indigo;
-
-    // 1. Revenue Waterfall — 3 area lines
-    mkChart(uid + "c1", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Sales Rev", data: col(pre + "sales"), borderColor: accentA, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, accentA, 0.25, 0); }, fill: true, borderWidth: 2 },
-          { label: "Net Rev (S-C)", data: col(pre + "net_sc"), borderColor: accentB, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, accentB, 0.2, 0); }, fill: true, borderWidth: 2 },
-          { label: "Net Rev Post Churn", data: col(pre + "net_churn"), borderColor: C.amber, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.amber, 0.18, 0); }, fill: true, borderWidth: 2 },
-        ],
-      },
-      options: { aspectRatio: 2.8, scales: { x: makeScaleX(), y: makeScaleY(null, "$") }, plugins: { legend: { position: "top" } } },
-    });
-
-    // 2. mROI & ROAS dual line
-    mkChart(uid + "c2", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "mROI", data: col(pre + "mroi"), borderColor: accentA, borderWidth: 2 },
-          { label: "ROAS", data: col(pre + "roas"), borderColor: C.amber, borderWidth: 2 },
-        ],
-      },
-      options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY(null, "x") } },
-    });
-
-    // 3. Hours & Shifts bars + Rev/Hr line
-    mkChart(uid + "c3", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Hours", data: col("hours"), backgroundColor: accentA + "88", borderColor: accentA, borderWidth: 1, yAxisID: "y", order: 2 },
-          { label: "Shifts", data: col("shifts"), backgroundColor: C.amber + "66", borderColor: C.amber, borderWidth: 1, yAxisID: "y", order: 3 },
-          { type: "line", label: "Rev/Hr", data: col(pre + "rph"), borderColor: C.emerald, borderWidth: 2.5, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Hours / Shifts", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("Rev/Hr", "$"),
-        },
-      },
-    });
-
-    // 4. Acquisitions & Conversion — dual axis
-    mkChart(uid + "c4", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Acquisitions", data: col(pre + "acq"), backgroundColor: accentA + "99", borderColor: accentA, borderWidth: 1, yAxisID: "y", order: 2 },
-          { type: "line", label: "Conv%", data: col(pre + "conv"), borderColor: C.emerald, borderWidth: 2.5, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Acquisitions", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("Conv%", "%"),
-        },
-      },
-    });
-
-    // 5. Cost Efficiency — Cost bars + CPA line + CPL line
-    mkChart(uid + "c5", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Media Cost", data: col(pre + "cost"), backgroundColor: C.red + "55", borderColor: C.red, borderWidth: 1, yAxisID: "y", order: 3 },
-          { type: "line", label: "CPA", data: col(pre + "cpa"), borderColor: C.amber, borderWidth: 2, yAxisID: "y1", order: 1, pointRadius: 0 },
-          { type: "line", label: "CPL", data: col(pre + "cpl"), borderColor: C.emerald, borderWidth: 2, yAxisID: "y1", order: 2, pointRadius: 0, borderDash: [5, 3] },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Media Cost", "$"),
-          y1: makeScaleYRight("CPA / CPL", "$"),
-        },
-      },
-    });
-
-    // 6. Leads & Retries — dual axis
-    mkChart(uid + "c6", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Leads", data: col(pre + "leads"), backgroundColor: accentB + "88", borderColor: accentB, borderWidth: 1, yAxisID: "y", order: 2 },
-          { type: "line", label: "Retries", data: col(pre + "retries"), borderColor: C.red, borderWidth: 2, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Leads", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("Retries", "", function(v) { return fmtNum(v); }),
-        },
-      },
-    });
-
-    // 7. Stat CRM Rev vs Sales Rev
-    mkChart(uid + "c7", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Sales Rev", data: col(pre + "sales"), borderColor: accentA, borderWidth: 2 },
-          { label: "Stat CRM Rev", data: col(pre + "stat_rev"), borderColor: C.purple, borderWidth: 2, borderDash: [6, 3] },
-        ],
-      },
-      options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY(null, "$") } },
-    });
-  }
-
-  // DB0: Rosen
-  function renderDB0() { return renderSchoolDB("r_", "Rosen"); }
-  function chartsDB0() { chartsSchoolDB("r_"); }
-
-  // DB1: IIBS
-  function renderDB1() { return renderSchoolDB("i_", "IIBS"); }
-  function chartsDB1() { chartsSchoolDB("i_"); }
-
-  // ══════════════════════════════════════════════
-  //  DB2: Combined — Both Schools
-  // ══════════════════════════════════════════════
-  function renderDB2() {
-    var cNetRev = avg(col("c_net_sc"));
-    var cSales = avg(col("c_sales"));
-    var cCost = avg(col("c_cost"));
-    var hrsAvg = avg(col("hours"));
-    var shfAvg = avg(col("shifts"));
-
-    // Combined summary table
-    var tblRows = D.map(function(d) {
-      return [
-        d.short,
-        fmtDollar(d.r_net_sc),
-        fmtDollar(d.i_net_sc),
-        fmtDollar(d.c_net_sc),
-        fmtX(d.r_mroi),
-        fmtX(d.i_mroi),
-        fmtDollar(d.r_sales),
-        fmtDollar(d.i_sales),
-        fmtNum(d.hours),
-        fmtNum(d.shifts)
-      ];
-    });
-
-    return '<h1 class="db-title">Combined — Both Schools</h1>' +
-      '<div class="kpi-row cols-5">' +
-        kpiHTML("Combined Net Rev (S-C)", fmtK(cNetRev)) +
-        kpiHTML("Combined Sales Rev", fmtK(cSales)) +
-        kpiHTML("Combined Cost", fmtK(cCost)) +
-        kpiHTML("Avg Hours", fmtNum(hrsAvg)) +
-        kpiHTML("Avg Shifts", fmtNum(shfAvg)) +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        '<div class="span-2">' + chartCardHTML("cb1", "Stacked Net Revenue — Rosen + IIBS") + '</div>' +
-        '<div class="span-2">' + chartCardHTML("cb2", "Stacked Sales Revenue — Rosen + IIBS") + '</div>' +
-        chartCardHTML("cb3", "mROI Comparison — R vs I") +
-        chartCardHTML("cb4", "ROAS Comparison — R vs I") +
-        chartCardHTML("cb5", "Cost Comparison — R vs I") +
-        chartCardHTML("cb6", "Hours & Shifts Trend") +
-      '</div>' +
-      tableHTML("Combined Summary — All Months",
-        ["Month","R Net Rev","I Net Rev","Combined","R mROI","I mROI","R Sales","I Sales","Hours","Shifts"],
-        tblRows
-      );
-  }
-  function chartsDB2() {
-    // 1. Stacked Net Rev
-    mkChart("cb1", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen Net Rev", data: col("r_net_sc"), borderColor: C.indigo, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.indigo, 0.3, 0.05); }, fill: true, borderWidth: 2 },
-          { label: "IIBS Net Rev", data: col("i_net_sc"), borderColor: C.cyan, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.cyan, 0.3, 0.05); }, fill: true, borderWidth: 2 },
-        ],
-      },
-      options: {
-        aspectRatio: 2.8,
-        scales: { x: makeScaleX(), y: { ...makeScaleY(null, "$"), stacked: true } },
-        plugins: { legend: { position: "top" }, filler: { propagate: true } },
-      },
-    });
-
-    // 2. Stacked Sales Rev
-    mkChart("cb2", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen Sales", data: col("r_sales"), borderColor: C.indigo, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.indigo, 0.25, 0.05); }, fill: true, borderWidth: 2 },
-          { label: "IIBS Sales", data: col("i_sales"), borderColor: C.cyan, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.cyan, 0.25, 0.05); }, fill: true, borderWidth: 2 },
-        ],
-      },
-      options: {
-        aspectRatio: 2.8,
-        scales: { x: makeScaleX(), y: { ...makeScaleY(null, "$"), stacked: true } },
-        plugins: { legend: { position: "top" }, filler: { propagate: true } },
-      },
-    });
-
-    // 3. mROI comparison
-    mkChart("cb3", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen mROI", data: col("r_mroi"), borderColor: C.indigo, borderWidth: 2 },
-          { label: "IIBS mROI", data: col("i_mroi"), borderColor: C.cyan, borderWidth: 2 },
-        ],
-      },
-      options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY("mROI", "x") } },
-    });
-
-    // 4. ROAS comparison
-    mkChart("cb4", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen ROAS", data: col("r_roas"), borderColor: C.indigo, borderWidth: 2 },
-          { label: "IIBS ROAS", data: col("i_roas"), borderColor: C.cyan, borderWidth: 2 },
-        ],
-      },
-      options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY("ROAS", "x") } },
-    });
-
-    // 5. Cost comparison
-    mkChart("cb5", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen Cost", data: col("r_cost"), borderColor: C.indigo, borderWidth: 2 },
-          { label: "IIBS Cost", data: col("i_cost"), borderColor: C.cyan, borderWidth: 2 },
-        ],
-      },
-      options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY("Cost", "$") } },
-    });
-
-    // 6. Hours & Shifts — dual axis
-    mkChart("cb6", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Hours", data: col("hours"), backgroundColor: C.indigo + "88", borderColor: C.indigo, borderWidth: 1, yAxisID: "y", order: 2 },
-          { type: "line", label: "Shifts", data: col("shifts"), borderColor: C.amber, borderWidth: 2, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Hours", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("Shifts", "", function(v) { return fmtNum(v); }),
-        },
-      },
-    });
-  }
-
-  // ══════════════════════════════════════════════
-  //  DB3: Zero-Sum — Shared Rep Bandwidth
-  // ══════════════════════════════════════════════
-  function renderDB3() {
-    var overlapAvg = avg(col("overlap_count"));
-    var rTopAvg = avg(col("r_pct_top"));
-    var iTopAvg = avg(col("i_pct_top"));
-    var gapAvg = avg(D.map(function(d) { return Math.abs(d.r_pct_top - d.i_pct_top); }));
-
-    // Table rows
-    var tblRows = D.map(function(d) {
-      return [
-        d.short,
-        fmtNum(d.hours),
-        fmtNum(d.shifts),
-        fmtPct(d.r_pct_top),
-        fmtPct(d.i_pct_top),
-        fmtPct(Math.abs(d.r_pct_top - d.i_pct_top)),
-        fmtDollar(d.r_net_sc),
-        fmtDollar(d.i_net_sc),
-        String(d.overlap_count),
-        (d.overlap_names || []).join(", ") || "—"
-      ];
-    });
-
-    return '<h1 class="db-title">Zero-Sum — Shared Rep Bandwidth</h1>' +
-      '<div class="kpi-row cols-4">' +
-        kpiHTML("Avg Shared Reps", overlapAvg.toFixed(1)) +
-        kpiHTML("Avg R % Top Reps", fmtPct(rTopAvg)) +
-        kpiHTML("Avg I % Top Reps", fmtPct(iTopAvg)) +
-        kpiHTML("Avg Bandwidth Gap", fmtPct(gapAvg)) +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        '<div class="span-2">' + chartCardHTML("zs1", "% Top Reps Side-by-Side — Rosen vs IIBS") + '</div>' +
-        chartCardHTML("zs2", "Bandwidth Scatter — R% Top vs I% Top") +
-        chartCardHTML("zs3", "Retry Allocation — Stacked to 100%") +
-        chartCardHTML("zs4", "Rep Overlap Count Over Time") +
-        chartCardHTML("zs5", "Revenue Impact — Net Rev (S-C) + % Top Overlay") +
-        chartCardHTML("zs6", "Hours vs Combined Net Revenue — Scatter") +
-      '</div>' +
-      tableHTML("Bandwidth Allocation — All Months",
-        ["Month","Hours","Shifts","R % Top","I % Top","Gap","R Net Rev","I Net Rev","Overlap","Shared Rep Names"],
-        tblRows,
-        { repNamesCol: 9 }
-      );
-  }
-  function chartsDB3() {
-    // 1. Grouped bar: R% top vs I% top
-    mkChart("zs1", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen % Top", data: col("r_pct_top"), backgroundColor: C.indigo + "CC", borderColor: C.indigo, borderWidth: 1 },
-          { label: "IIBS % Top", data: col("i_pct_top"), backgroundColor: C.cyan + "CC", borderColor: C.cyan, borderWidth: 1 },
-        ],
-      },
-      options: { aspectRatio: 2.8, scales: { x: makeScaleX(), y: makeScaleY("% Top Reps", "%") } },
-    });
-
-    // 2. Scatter: R% top vs I% top
-    mkChart("zs2", {
-      type: "scatter",
-      data: {
-        datasets: [{
-          label: "R% vs I%",
-          data: D.map(function(d) { return { x: d.r_pct_top, y: d.i_pct_top }; }),
-          backgroundColor: C.indigo + "AA",
-          borderColor: C.indigo,
-          borderWidth: 1,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        }],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: { ...makeScaleX(), title: { display: true, text: "Rosen % Top", font: { size: 10 }, color: C.textMuted }, ticks: { callback: function(v) { return v + "%"; } } },
-          y: { ...makeScaleY("IIBS % Top", "%"), ticks: { callback: function(v) { return v + "%"; } } },
-        },
-      },
-    });
-
-    // 3. Retry allocation stacked area
-    mkChart("zs3", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Rosen Retry Share", data: col("r_retry_share"), borderColor: C.indigo, backgroundColor: C.indigo + "55", fill: true, borderWidth: 2 },
-          { label: "IIBS Retry Share", data: col("i_retry_share"), borderColor: C.cyan, backgroundColor: C.cyan + "55", fill: true, borderWidth: 2 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: { x: makeScaleX(), y: { ...makeScaleY(null, "%"), stacked: true, max: 100 } },
-        plugins: { filler: { propagate: true } },
-      },
-    });
-
-    // 4. Overlap count line + area
-    mkChart("zs4", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [{
-          label: "Overlap Count",
-          data: col("overlap_count"),
-          borderColor: C.amber,
-          backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.amber, 0.25, 0); },
-          fill: true,
-          borderWidth: 2,
-        }],
-      },
-      options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: { ...makeScaleY("Count", ""), ticks: { stepSize: 1 } } } },
-    });
-
-    // 5. Revenue Impact — dual lines + % top conceptual overlay
-    mkChart("zs5", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "R Net Rev (S-C)", data: col("r_net_sc"), borderColor: C.indigo, borderWidth: 2, yAxisID: "y" },
-          { label: "I Net Rev (S-C)", data: col("i_net_sc"), borderColor: C.cyan, borderWidth: 2, yAxisID: "y" },
-          { label: "R % Top", data: col("r_pct_top"), borderColor: C.amber, borderDash: [5, 3], borderWidth: 1.5, yAxisID: "y1", pointRadius: 0 },
-          { label: "I % Top", data: col("i_pct_top"), borderColor: C.emerald, borderDash: [5, 3], borderWidth: 1.5, yAxisID: "y1", pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Net Rev (S-C)", "$"),
-          y1: makeScaleYRight("% Top Reps", "%"),
-        },
-      },
-    });
-
-    // 6. Hours vs Combined Net Revenue scatter
-    mkChart("zs6", {
-      type: "scatter",
-      data: {
-        datasets: [{
-          label: "Hours vs Combined Net Rev",
-          data: D.map(function(d) { return { x: d.hours, y: d.c_net_sc }; }),
-          backgroundColor: C.emerald + "AA",
-          borderColor: C.emerald,
-          borderWidth: 1,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        }],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: { ...makeScaleX(), title: { display: true, text: "Hours", font: { size: 10 }, color: C.textMuted }, ticks: { callback: function(v) { return fmtNum(v); } } },
-          y: makeScaleY("Combined Net Rev (S-C)", "$"),
-        },
-      },
-    });
-  }
-
-  // ══════════════════════════════════════════════
-  //  DB4: Fair Context — Rosen Inputs vs Outputs
-  // ══════════════════════════════════════════════
-  function renderDB4() {
-    var hrsAvg = avg(col("hours"));
-    var shfAvg = avg(col("shifts"));
-    var leadsAvg = avg(col("r_leads"));
-    var pctAvg = avg(col("r_pct_top"));
-    var netAvg = avg(col("r_net_sc"));
-
-    var tblRows = D.map(function(d) {
-      return [
-        d.short,
-        fmtNum(d.hours),
-        fmtNum(d.shifts),
-        fmtNum(d.r_leads),
-        fmtNum(d.r_retries),
-        fmtPct(d.r_pct_top),
-        "→",
-        fmtDollar(d.r_net_churn),
-        fmtDollar(d.r_net_sc),
-        fmtDollar(d.r_sales),
-        fmtX(d.r_mroi),
-        fmtX(d.r_roas),
-        "$" + d.r_rph.toFixed(1)
-      ];
-    });
-
-    return '<h1 class="db-title">Fair Context — Rosen Inputs vs Outputs</h1>' +
-      '<div class="kpi-row cols-5">' +
-        kpiHTML("Avg Hours", fmtNum(hrsAvg)) +
-        kpiHTML("Avg Shifts", fmtNum(shfAvg)) +
-        kpiHTML("Avg Leads", fmtNum(leadsAvg)) +
-        kpiHTML("Avg % Top Reps", fmtPct(pctAvg)) +
-        kpiHTML("Avg Net Rev (S-C)", fmtK(netAvg)) +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        '<div class="span-2">' + chartCardHTML("fc1", "Hours → Net Rev Post Churn — Dual Axis") + '</div>' +
-        chartCardHTML("fc2", "Scatter — Hours vs Net Rev (S-C)") +
-        chartCardHTML("fc3", "Scatter — % Top Reps vs Net Rev (S-C)") +
-        chartCardHTML("fc4", "Shifts → mROI — Dual Axis") +
-        chartCardHTML("fc5", "Leads & Retries Trend") +
-        chartCardHTML("fc6", "Leads vs Acquisitions — Dual Axis") +
-      '</div>' +
-      tableHTML("Input-Output Summary — All Months",
-        ["Month","Hours","Shifts","Leads","Retries","% Top Reps","→","Net Rev Post Churn","Net Rev (S-C)","Sales Rev","mROI","ROAS","Rev/Hr"],
-        tblRows
-      );
-  }
-  function chartsDB4() {
-    // 1. Hours (area, left) + Net Rev Post Churn (line, right)
-    mkChart("fc1", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Hours", data: col("hours"), borderColor: C.cyan, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.cyan, 0.25, 0); }, fill: true, borderWidth: 2, yAxisID: "y" },
-          { label: "Net Rev Post Churn", data: col("r_net_churn"), borderColor: C.indigo, borderWidth: 2.5, yAxisID: "y1", fill: false },
-        ],
-      },
-      options: {
-        aspectRatio: 2.8,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Hours", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("Net Rev Post Churn", "$"),
-        },
-      },
-    });
-
-    // 2. Hours vs Net Rev scatter
-    mkChart("fc2", {
-      type: "scatter",
-      data: {
-        datasets: [{
-          label: "Hours vs Net Rev",
-          data: D.map(function(d) { return { x: d.hours, y: d.r_net_sc }; }),
-          backgroundColor: C.indigo + "AA",
-          borderColor: C.indigo,
-          borderWidth: 1,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        }],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: { ...makeScaleX(), title: { display: true, text: "Hours", font: { size: 10 }, color: C.textMuted }, ticks: { callback: function(v) { return fmtNum(v); } } },
-          y: makeScaleY("Net Rev (S-C)", "$"),
-        },
-      },
-    });
-
-    // 3. % Top Reps vs Net Rev scatter
-    mkChart("fc3", {
-      type: "scatter",
-      data: {
-        datasets: [{
-          label: "% Top vs Net Rev",
-          data: D.map(function(d) { return { x: d.r_pct_top, y: d.r_net_sc }; }),
-          backgroundColor: C.emerald + "AA",
-          borderColor: C.emerald,
-          borderWidth: 1,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        }],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: { ...makeScaleX(), title: { display: true, text: "% Top Reps", font: { size: 10 }, color: C.textMuted }, ticks: { callback: function(v) { return v + "%"; } } },
-          y: makeScaleY("Net Rev (S-C)", "$"),
-        },
-      },
-    });
-
-    // 4. Shifts → mROI dual axis
-    mkChart("fc4", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Shifts", data: col("shifts"), backgroundColor: C.amber + "88", borderColor: C.amber, borderWidth: 1, yAxisID: "y", order: 2 },
-          { type: "line", label: "mROI", data: col("r_mroi"), borderColor: C.indigo, borderWidth: 2.5, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Shifts", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("mROI", "x"),
-        },
-      },
-    });
-
-    // 5. Leads & Retries Trend
-    mkChart("fc5", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Leads", data: col("r_leads"), borderColor: C.amber, borderWidth: 2 },
-          { label: "Retries", data: col("r_retries"), borderColor: C.red, borderWidth: 2 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY(null, "", function(v) { return fmtNum(v); }),
-        },
-      },
-    });
-
-    // 6. Leads vs Acquisitions dual axis
-    mkChart("fc6", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Leads", data: col("r_leads"), backgroundColor: C.cyan + "88", borderColor: C.cyan, borderWidth: 1, yAxisID: "y", order: 2 },
-          { type: "line", label: "Acquisitions", data: col("r_acq"), borderColor: C.emerald, borderWidth: 2.5, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Leads", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("Acquisitions", "", function(v) { return fmtNum(v); }),
-        },
-      },
-    });
-  }
-
-  // ══════════════════════════════════════════════
-  //  DB5: CEO Strategic Overview
-  // ══════════════════════════════════════════════
-  function renderDB5() {
-    var rNetChAvg = avg(col("r_net_churn")), iNetChAvg = avg(col("i_net_churn"));
-    var rNetAvg = avg(col("r_net_sc")), iNetAvg = avg(col("i_net_sc"));
-    var rMroiAvg = avg(col("r_mroi")), iMroiAvg = avg(col("i_mroi"));
-    var rRoasAvg = avg(col("r_roas")), iRoasAvg = avg(col("i_roas"));
-    var rRphAvg = avg(col("r_rph")), iRphAvg = avg(col("i_rph"));
-    var rSalesAvg = avg(col("r_sales")), iSalesAvg = avg(col("i_sales"));
-
-    return '<h1 class="db-title">CEO Strategic Overview</h1>' +
-      '<div class="kpi-row cols-6">' +
-        kpiCompareHTML("Net Rev Post Churn", fmtK(rNetChAvg), fmtK(iNetChAvg)) +
-        kpiCompareHTML("Net Rev (S-C)", fmtK(rNetAvg), fmtK(iNetAvg)) +
-        kpiCompareHTML("mROI", fmtX(rMroiAvg), fmtX(iMroiAvg)) +
-        kpiCompareHTML("ROAS", fmtX(rRoasAvg), fmtX(iRoasAvg)) +
-        kpiCompareHTML("Rev/Hr", "$" + rRphAvg.toFixed(0), "$" + iRphAvg.toFixed(0)) +
-        kpiCompareHTML("Sales Rev", fmtK(rSalesAvg), fmtK(iSalesAvg)) +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        chartCardHTML("ceo1", "Net Rev (S-C) — R vs I") +
-        chartCardHTML("ceo2", "Net Rev Post Churn — R vs I") +
-        chartCardHTML("ceo3", "mROI — R vs I") +
-        chartCardHTML("ceo4", "ROAS — R vs I") +
-        chartCardHTML("ceo5", "Sales Rev — R vs I") +
-        chartCardHTML("ceo6", "Media Cost — R vs I") +
-      '</div>';
-  }
-  function chartsDB5() {
-    var dualLine = function(id, rField, iField, yLabel, yPre) {
-      mkChart(id, {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [
-            { label: "Rosen", data: col(rField), borderColor: C.indigo, borderWidth: 2 },
-            { label: "IIBS", data: col(iField), borderColor: C.cyan, borderWidth: 2 },
-          ],
-        },
-        options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY(yLabel, yPre) } },
-      });
-    };
-    dualLine("ceo1", "r_net_sc", "i_net_sc", "Net Rev (S-C)", "$");
-    dualLine("ceo2", "r_net_churn", "i_net_churn", "Net Rev Post Churn", "$");
-    dualLine("ceo3", "r_mroi", "i_mroi", "mROI", "x");
-    dualLine("ceo4", "r_roas", "i_roas", "ROAS", "x");
-    dualLine("ceo5", "r_sales", "i_sales", "Sales Rev", "$");
-    dualLine("ceo6", "r_cost", "i_cost", "Media Cost", "$");
-  }
-
-  // ══════════════════════════════════════════════
-  //  DB6: Top Reps Correlation (Rosen/IIBS sub-tabs)
-  // ══════════════════════════════════════════════
-  var db6SubTab = "rosen";
-
-  function renderDB6() {
-    return '<h1 class="db-title">Top Reps — Revenue Correlation</h1>' +
-      '<div class="sub-tabs" id="db6Tabs">' +
-        '<button class="sub-tab ' + (db6SubTab === "rosen" ? "active" : "") + '" data-sub="rosen">Rosen</button>' +
-        '<button class="sub-tab ' + (db6SubTab === "iibs" ? "active" : "") + '" data-sub="iibs">IIBS</button>' +
-      '</div>' +
-      '<div id="db6Content"></div>';
-  }
-
-  function renderDB6Content() {
-    var isR = db6SubTab === "rosen";
-    var pctField = isR ? "r_pct_top" : "i_pct_top";
-    var netField = isR ? "r_net_sc" : "i_net_sc";
-    var netChurnField = isR ? "r_net_churn" : "i_net_churn";
-    var salesField = isR ? "r_sales" : "i_sales";
-    var mroiField = isR ? "r_mroi" : "i_mroi";
-    var topNamesField = isR ? "r_top_names" : "i_top_names";
-    var threshold = isR ? 65 : 50;
-    var pctData = col(pctField);
-    var netData = col(netField);
-
-    var avgPct = avg(pctData);
-    var above = D.filter(function(d) { return d[pctField] >= threshold; });
-    var below = D.filter(function(d) { return d[pctField] < threshold; });
-    var aboveAvg = above.length ? avg(above.map(function(d) { return d[netField]; })) : 0;
-    var belowAvg = below.length ? avg(below.map(function(d) { return d[netField]; })) : 0;
-    var delta = aboveAvg - belowAvg;
-
-    // Rep names table
-    var repTableRows = D.map(function(d) {
-      return [
-        d.short,
-        fmtPct(d[pctField]),
-        (d[topNamesField] || []).join(", ") || "—",
-        fmtDollar(d[netChurnField]),
-        fmtDollar(d[netField]),
-        fmtDollar(d[salesField]),
-        fmtX(d[mroiField]),
-        fmtNum(d.hours)
-      ];
-    });
-
-    // Top 10 months by net rev
-    var sorted = D.slice().sort(function(a, b) { return b[netField] - a[netField]; }).slice(0, 10);
-
-    var container = document.getElementById("db6Content");
-    container.innerHTML =
-      '<div class="kpi-row cols-5">' +
-        kpiHTML("Avg % Top Reps", fmtPct(avgPct)) +
-        kpiHTML("Months Above " + threshold + "%", String(above.length)) +
-        kpiHTML("Avg Rev When High", fmtK(aboveAvg)) +
-        kpiHTML("Avg Rev When Low", fmtK(belowAvg)) +
-        kpiHTML("Delta", fmtK(delta)) +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        '<div class="span-2">' + chartCardHTML("tr1", "% Top Reps (Area) + Net Rev S-C (Line) — Dual Axis") + '</div>' +
-        chartCardHTML("tr2", "Correlation Scatter — % Top Reps vs Net Rev (S-C)") +
-        chartCardHTML("tr3", "% Top Reps (Area) + Sales Rev (Line) — Dual Axis") +
-        chartCardHTML("tr4", "Top 10 Months by Net Rev — Horizontal Bars") +
-        chartCardHTML("tr5", "Hours + % Top Reps — Dual Axis") +
-      '</div>' +
-      tableHTML("Rep Names & Performance — All Months",
-        ["Month","% Top Reps","Top Rep Names","Net Rev Post Churn","Net Rev (S-C)","Sales Rev","mROI","Hours"],
-        repTableRows,
-        { cyanCol: 1, repNamesCol: 2 }
-      );
-
-    var accentColor = isR ? C.indigo : C.cyan;
-
-    // 1. % Top Reps area + Net Rev line
-    mkChart("tr1", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "% Top Reps", data: pctData, borderColor: C.cyan, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.cyan, 0.25, 0); }, fill: true, borderWidth: 2, yAxisID: "y" },
-          { label: "Net Rev (S-C)", data: netData, borderColor: C.emerald, borderWidth: 2.5, yAxisID: "y1", fill: false },
-        ],
-      },
-      options: {
-        aspectRatio: 2.8,
-        scales: { x: makeScaleX(), y: makeScaleY("% Top Reps", "%"), y1: makeScaleYRight("Net Rev (S-C)", "$") },
-      },
-    });
-
-    // 2. Scatter — % Top vs Net Rev
-    mkChart("tr2", {
-      type: "scatter",
-      data: {
-        datasets: [{
-          label: "% Top vs Net Rev",
-          data: D.map(function(d) { return { x: d[pctField], y: d[netField] }; }),
-          backgroundColor: accentColor + "AA",
-          borderColor: accentColor,
-          borderWidth: 1,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-        }],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: { ...makeScaleX(), title: { display: true, text: "% Top Reps", font: { size: 10 }, color: C.textMuted }, ticks: { callback: function(v) { return v + "%"; } } },
-          y: makeScaleY("Net Rev (S-C)", "$"),
-        },
-      },
-    });
-
-    // 3. % Top Reps area + Sales Rev line
-    mkChart("tr3", {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "% Top Reps", data: pctData, borderColor: C.cyan, backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.cyan, 0.2, 0); }, fill: true, borderWidth: 2, yAxisID: "y" },
-          { label: "Sales Rev", data: col(salesField), borderColor: C.amber, borderWidth: 2.5, yAxisID: "y1", fill: false },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: { x: makeScaleX(), y: makeScaleY("% Top Reps", "%"), y1: makeScaleYRight("Sales Rev", "$") },
-      },
-    });
-
-    // 4. Top 10 horizontal bars
-    mkChart("tr4", {
-      type: "bar",
-      data: {
-        labels: sorted.map(function(d) { return d.short + " (" + d[pctField].toFixed(0) + "%)"; }),
-        datasets: [{
-          label: "Net Rev (S-C)",
-          data: sorted.map(function(d) { return d[netField]; }),
-          backgroundColor: sorted.map(function(d) { return d[pctField] >= threshold ? C.emerald + "CC" : C.amber + "CC"; }),
-          borderColor: sorted.map(function(d) { return d[pctField] >= threshold ? C.emerald : C.amber; }),
-          borderWidth: 1,
-        }],
-      },
-      options: {
-        indexAxis: "y",
-        aspectRatio: 1.4,
-        scales: {
-          x: makeScaleY("Net Rev (S-C)", "$"),
-          y: { ticks: { font: { size: 10 } }, grid: { display: false } },
-        },
-        plugins: { legend: { display: false } },
-      },
-    });
-
-    // 5. Hours + % Top Reps dual axis
-    mkChart("tr5", {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Hours", data: col("hours"), backgroundColor: C.indigo + "77", borderColor: C.indigo, borderWidth: 1, yAxisID: "y", order: 2 },
-          { type: "line", label: "% Top Reps", data: pctData, borderColor: C.cyan, borderWidth: 2.5, yAxisID: "y1", order: 1, pointRadius: 0 },
-        ],
-      },
-      options: {
-        aspectRatio: 1.6,
-        scales: {
-          x: makeScaleX(),
-          y: makeScaleY("Hours", "", function(v) { return fmtNum(v); }),
-          y1: makeScaleYRight("% Top Reps", "%"),
-        },
-      },
-    });
-  }
-
-  // ══════════════════════════════════════════════
-  //  DB7: Monthly Intelligence Briefing
-  // ══════════════════════════════════════════════
-  var db7SubTab = "rosen";
-
-  function renderDB7() {
-    return '<h1 class="db-title">Monthly Intelligence Briefing</h1>' +
-      '<div class="sub-tabs" id="db7Tabs">' +
-        '<button class="sub-tab ' + (db7SubTab === "rosen" ? "active" : "") + '" data-sub="rosen">Rosen</button>' +
-        '<button class="sub-tab ' + (db7SubTab === "iibs" ? "active" : "") + '" data-sub="iibs">IIBS</button>' +
-        '<button class="sub-tab ' + (db7SubTab === "combined" ? "active" : "") + '" data-sub="combined">Combined</button>' +
-      '</div>' +
-      '<div id="db7Content"></div>';
-  }
-
-  function renderDB7Content() {
-    var pre, netChurnField, netSCField, mroiField, roasField, rphField, salesField, costField, cpaField, acqField, convField, labelName;
-
-    if (db7SubTab === "rosen") {
-      pre = "r_"; labelName = "Rosen";
-      netChurnField = "r_net_churn"; netSCField = "r_net_sc"; mroiField = "r_mroi"; roasField = "r_roas";
-      rphField = "r_rph"; salesField = "r_sales"; costField = "r_cost"; cpaField = "r_cpa"; acqField = "r_acq"; convField = "r_conv";
-    } else if (db7SubTab === "iibs") {
-      pre = "i_"; labelName = "IIBS";
-      netChurnField = "i_net_churn"; netSCField = "i_net_sc"; mroiField = "i_mroi"; roasField = "i_roas";
-      rphField = "i_rph"; salesField = "i_sales"; costField = "i_cost"; cpaField = "i_cpa"; acqField = "i_acq"; convField = "i_conv";
-    } else {
-      pre = null; labelName = "Combined";
-      netChurnField = null; netSCField = "c_net_sc"; mroiField = "r_mroi"; roasField = "r_roas";
-      rphField = null; salesField = "c_sales"; costField = "c_cost"; cpaField = null; acqField = null; convField = null;
-    }
-
-    var isCombined = db7SubTab === "combined";
-    var netField = isCombined ? "c_net_sc" : (pre + "net_churn");
-    var netData = col(netField);
-    var avgVal = avg(netData);
-    var maxIdx = netData.indexOf(Math.max.apply(null, netData));
-    var minIdx = netData.indexOf(Math.min.apply(null, netData));
-    var last3 = avg(netData.slice(-3));
-    var prior3 = avg(netData.slice(-6, -3));
-    var trendPct = ((last3 - prior3) / prior3 * 100);
-
-    // Full metrics table
-    var tblRows;
-    if (!isCombined) {
-      tblRows = D.map(function(d) {
-        return [
-          d.short,
-          fmtDollar(d[pre + "net_churn"]),
-          fmtDollar(d[pre + "net_sc"]),
-          fmtX(d[pre + "mroi"]),
-          fmtX(d[pre + "roas"]),
-          "$" + d[pre + "rph"].toFixed(1),
-          fmtNum(d.hours),
-          fmtNum(d.shifts),
-          fmtDollar(d[pre + "sales"]),
-          fmtDollar(d[pre + "cost"]),
-          "$" + Math.round(d[pre + "cpa"]),
-          fmtNum(d[pre + "acq"]),
-          d[pre + "conv"].toFixed(1) + "%"
-        ];
-      });
-    } else {
-      tblRows = D.map(function(d) {
-        return [
-          d.short,
-          fmtDollar(d.c_net_sc),
-          fmtDollar(d.r_net_sc),
-          fmtDollar(d.i_net_sc),
-          fmtX(d.r_mroi),
-          fmtX(d.i_mroi),
-          fmtNum(d.hours),
-          fmtNum(d.shifts),
-          fmtDollar(d.c_sales),
-          fmtDollar(d.c_cost)
-        ];
-      });
-    }
-
-    var tblHeaders = !isCombined
-      ? ["Month","Net Rev Post Churn","Net Rev (S-C)","mROI","ROAS","Rev/Hr","Hours","Shifts","Sales Rev","Cost","CPA","Acq","Conv%"]
-      : ["Month","Combined Net Rev","R Net Rev","I Net Rev","R mROI","I mROI","Hours","Shifts","Combined Sales","Combined Cost"];
-
-    var container = document.getElementById("db7Content");
-    container.innerHTML =
-      '<div class="kpi-row cols-4">' +
-        kpiHTML("Best Month", D[maxIdx].short + " — " + fmtK(netData[maxIdx])) +
-        kpiHTML("Worst Month", D[minIdx].short + " — " + fmtK(netData[minIdx])) +
-        kpiHTML("26-Month Avg", fmtK(avgVal)) +
-        kpiHTML("Trend (L3 vs P3)", (trendPct >= 0 ? "+" : "") + trendPct.toFixed(1) + "%") +
-      '</div>' +
-      '<div class="chart-grid cols-2">' +
-        (isCombined ? '' : '<div class="span-2">' + chartCardHTML("mi1", labelName + " — Net Rev Post Churn Trend") + '</div>') +
-        (isCombined ? '<div class="span-2">' + chartCardHTML("mi2", "Combined Net Rev (S-C) Trend") + '</div>' :
-          chartCardHTML("mi2", labelName + " — Net Rev (S-C) Trend")) +
-        chartCardHTML("mi3", (isCombined ? "R vs I mROI" : "mROI + ROAS — Dual Line")) +
-        chartCardHTML("mi4", (isCombined ? "Hours Trend" : "Rev/Hr + Hours — Dual Axis")) +
-        '<div class="span-2">' + chartCardHTML("mi5", "All 26 Months — Sorted by " + (isCombined ? "Combined Net Rev" : "Net Rev"), 500) + '</div>' +
-      '</div>' +
-      tableHTML("Full Metrics — " + labelName, tblHeaders, tblRows);
-
-    var accentColor = db7SubTab === "iibs" ? C.cyan : C.indigo;
-
-    // 1. Net Rev Post Churn trend (not for combined)
-    if (!isCombined) {
-      mkChart("mi1", {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            label: "Net Rev Post Churn",
-            data: col(pre + "net_churn"),
-            borderColor: accentColor,
-            backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, accentColor, 0.2, 0); },
-            fill: true,
-            borderWidth: 2,
-          }],
-        },
-        options: { aspectRatio: 2.8, scales: { x: makeScaleX(), y: makeScaleY(null, "$") }, plugins: { legend: { display: false } } },
-      });
-    }
-
-    // 2. Net Rev (S-C) trend
-    if (!isCombined) {
-      mkChart("mi2", {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            label: "Net Rev (S-C)",
-            data: col(netSCField),
-            borderColor: C.emerald,
-            backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.emerald, 0.15, 0); },
-            fill: true,
-            borderWidth: 2,
-          }],
-        },
-        options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY(null, "$") }, plugins: { legend: { display: false } } },
-      });
-    } else {
-      mkChart("mi2", {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            label: "Combined Net Rev (S-C)",
-            data: col("c_net_sc"),
-            borderColor: accentColor,
-            backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, accentColor, 0.2, 0); },
-            fill: true,
-            borderWidth: 2,
-          }],
-        },
-        options: { aspectRatio: 2.8, scales: { x: makeScaleX(), y: makeScaleY(null, "$") }, plugins: { legend: { display: false } } },
-      });
-    }
-
-    // 3. mROI + ROAS (or combined comparison)
-    if (!isCombined) {
-      mkChart("mi3", {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [
-            { label: "mROI", data: col(mroiField), borderColor: C.amber, borderWidth: 2 },
-            { label: "ROAS", data: col(roasField), borderColor: C.emerald, borderWidth: 2 },
-          ],
-        },
-        options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY(null, "x") } },
-      });
-    } else {
-      mkChart("mi3", {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [
-            { label: "R mROI", data: col("r_mroi"), borderColor: C.indigo, borderWidth: 2 },
-            { label: "I mROI", data: col("i_mroi"), borderColor: C.cyan, borderWidth: 2 },
-          ],
-        },
-        options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY("mROI", "x") } },
-      });
-    }
-
-    // 4. Rev/Hr + Hours dual axis (or hours only for combined)
-    if (!isCombined) {
-      mkChart("mi4", {
-        type: "bar",
-        data: {
-          labels: labels,
-          datasets: [
-            { label: "Hours", data: col("hours"), backgroundColor: accentColor + "77", borderColor: accentColor, borderWidth: 1, yAxisID: "y", order: 2 },
-            { type: "line", label: "Rev/Hr", data: col(rphField), borderColor: C.amber, borderWidth: 2.5, yAxisID: "y1", order: 1, pointRadius: 0 },
-          ],
-        },
-        options: {
-          aspectRatio: 1.6,
-          scales: {
-            x: makeScaleX(),
-            y: makeScaleY("Hours", "", function(v) { return fmtNum(v); }),
-            y1: makeScaleYRight("Rev/Hr", "$"),
-          },
-        },
-      });
-    } else {
-      mkChart("mi4", {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            label: "Hours",
-            data: col("hours"),
-            borderColor: C.amber,
-            backgroundColor: function(ctx) { return makeGradient(ctx.chart.ctx, C.amber, 0.2, 0); },
-            fill: true,
-            borderWidth: 2,
-          }],
-        },
-        options: { aspectRatio: 1.6, scales: { x: makeScaleX(), y: makeScaleY("Hours", "", function(v) { return fmtNum(v); }) } },
-      });
-    }
-
-    // 5. Sorted horizontal bars — all 26 months
-    var sortedData = D.slice().map(function(d, i) { return { label: d.short, val: netData[i] }; }).sort(function(a, b) { return b.val - a.val; });
-    var maxVal = sortedData[0].val;
-    var minVal = sortedData[sortedData.length - 1].val;
-    var barColors = sortedData.map(function(d) {
-      var ratio = (d.val - minVal) / (maxVal - minVal || 1);
-      // Green=high, Red=low
-      var r = Math.round(239 * (1 - ratio) + 16 * ratio);
-      var g = Math.round(68 * (1 - ratio) + 185 * ratio);
-      var b = Math.round(68 * (1 - ratio) + 129 * ratio);
-      return "rgba(" + r + "," + g + "," + b + ",0.8)";
-    });
-
-    mkChart("mi5", {
-      type: "bar",
-      data: {
-        labels: sortedData.map(function(d) { return d.label; }),
-        datasets: [{
-          label: "Net Rev",
-          data: sortedData.map(function(d) { return d.val; }),
-          backgroundColor: barColors,
-          borderWidth: 0,
-        }],
-      },
-      options: {
-        indexAxis: "y",
-        aspectRatio: 0.8,
-        scales: {
-          x: makeScaleY(null, "$"),
-          y: { ticks: { font: { size: 10 } }, grid: { display: false } },
-        },
-        plugins: { legend: { display: false } },
-      },
-    });
-  }
-
-  // ══════════════════════════════════════════════
-  //  Dashboard Registry
-  // ══════════════════════════════════════════════
-  var dbRenderers = [renderDB0, renderDB1, renderDB2, renderDB3, renderDB4, renderDB5, renderDB6, renderDB7];
-  var dbCharters = [chartsDB0, chartsDB1, chartsDB2, chartsDB3, chartsDB4, chartsDB5, chartsDB6Inner, chartsDB7Inner];
-
-  function chartsDB6Inner() { renderDB6Content(); }
-  function chartsDB7Inner() { renderDB7Content(); }
-
-  // ══════════════════════════════════════════════
-  //  Navigation
-  // ══════════════════════════════════════════════
-  var activeDB = 0;
-
-  function switchDB(idx) {
-    if (idx === activeDB && document.getElementById("dashboardContainer").children.length > 0) return;
-    activeDB = idx;
-
-    // Update nav
-    document.querySelectorAll(".nav-item").forEach(function(btn, i) {
-      btn.classList.toggle("active", i === idx);
-    });
-
-    destroyCharts();
-    var container = $("#dashboardContainer");
-    container.innerHTML = '<div class="dashboard-view">' + dbRenderers[idx]() + '</div>';
-    dbCharters[idx]();
-
-    // Wire sub-tabs for DB6
-    if (idx === 6) {
-      document.getElementById("db6Tabs").addEventListener("click", function(e) {
-        var sub = e.target.dataset.sub;
-        if (!sub || sub === db6SubTab) return;
-        db6SubTab = sub;
-        document.querySelectorAll("#db6Tabs .sub-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.sub === sub); });
-        destroyCharts();
-        renderDB6Content();
-      });
-    }
-
-    // Wire sub-tabs for DB7
-    if (idx === 7) {
-      document.getElementById("db7Tabs").addEventListener("click", function(e) {
-        var sub = e.target.dataset.sub;
-        if (!sub || sub === db7SubTab) return;
-        db7SubTab = sub;
-        document.querySelectorAll("#db7Tabs .sub-tab").forEach(function(b) { b.classList.toggle("active", b.dataset.sub === sub); });
-        destroyCharts();
-        renderDB7Content();
-      });
-    }
-
-    // Close mobile sidebar
-    closeMobileSidebar();
-  }
-
-  // ── Sidebar events ──
-  document.getElementById("sidebarNav").addEventListener("click", function(e) {
-    var btn = e.target.closest(".nav-item");
-    if (!btn) return;
-    switchDB(parseInt(btn.dataset.db));
   });
 
-  // ── Mobile sidebar ──
-  function openMobileSidebar() {
-    $("#sidebar").classList.add("open");
-    $("#sidebarOverlay").classList.add("active");
-  }
-  function closeMobileSidebar() {
-    $("#sidebar").classList.remove("open");
-    $("#sidebarOverlay").classList.remove("active");
-  }
-  $("#menuToggle").addEventListener("click", openMobileSidebar);
-  $("#sidebarOverlay").addEventListener("click", closeMobileSidebar);
+  // Mobile sidebar
+  const menuToggle = $("#menuToggle");
+  const sidebar = $("#sidebar");
+  const overlay = $("#sidebarOverlay");
+  const closeMobileSidebar = () => {
+    sidebar.classList.remove("open");
+    overlay.classList.remove("active");
+  };
+  if (menuToggle) menuToggle.addEventListener("click", () => {
+    sidebar.classList.toggle("open");
+    overlay.classList.toggle("active");
+  });
+  if (overlay) overlay.addEventListener("click", closeMobileSidebar);
 
-  // ── Init ──
-  switchDB(0);
+  // ── Build KPI Row ──
+  function kpiRow(items) {
+    const n = items.length;
+    const cls = n <= 3 ? "cols-3" : n <= 4 ? "cols-4" : n <= 5 ? "cols-5" : "cols-6";
+    return `<div class="kpi-row ${cls}">${items.map((k) =>
+      `<div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-value">${k.value}</div>
+      </div>`
+    ).join("")}</div>`;
+  }
 
+  function kpiCompareRow(items) {
+    return `<div class="kpi-row cols-${items.length}">${items.map((k) =>
+      `<div class="kpi-card">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-compare">
+          <div class="kpi-compare-item">
+            <div class="kpi-compare-label">Rosen</div>
+            <div class="kpi-compare-value rosen">${k.rosen}</div>
+          </div>
+          <div class="kpi-compare-item">
+            <div class="kpi-compare-label">IIBS</div>
+            <div class="kpi-compare-value iibs">${k.iibs}</div>
+          </div>
+        </div>
+      </div>`
+    ).join("")}</div>`;
+  }
+
+  // ── Chart Card HTML ──
+  function chartCard(id, title, height) {
+    return `<div class="chart-card">
+      <div class="chart-card-title">${title}</div>
+      <div class="chart-wrap"><canvas id="${id}" height="${height || 400}"></canvas></div>
+    </div>`;
+  }
+
+  // ── Data Table Builder ──
+  function dataTable(title, headers, rows) {
+    return `<div class="data-table-card">
+      <div class="chart-card-title">${title}</div>
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+          <tbody>${rows.map((r) => `<tr>${r.map((c, i) => {
+            const cls = c && typeof c === 'object' ? ` class="${c.cls}"` : '';
+            const val = c && typeof c === 'object' ? c.v : c;
+            return `<td${cls}>${val}</td>`;
+          }).join("")}</tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  // ── Sub-tabs ──
+  function subTabs(tabNames) {
+    return `<div class="sub-tabs">${tabNames.map((t, i) =>
+      `<button class="sub-tab${i === activeSubTab ? " active" : ""}" data-subtab="${i}">${t}</button>`
+    ).join("")}</div>`;
+  }
+  function bindSubTabs() {
+    document.querySelectorAll(".sub-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeSubTab = parseInt(btn.dataset.subtab);
+        render();
+      });
+    });
+  }
+
+  // ===========================================================================
+  // DB1 & DB2: School P&L (Rosen / IIBS) — Consolidated Monthly View
+  // ===========================================================================
+  function renderSchoolPL(prefix, schoolName) {
+    const p = prefix; // 'r' or 'i'
+    const kpis = [
+      { label: "Avg Net Rev Post Churn", value: fmtDollar(avg(col(p + "_net_churn"))) },
+      { label: "Avg Net Rev (S-C)", value: fmtDollar(avg(col(p + "_net_sc"))) },
+      { label: "Avg mROI", value: fmtX(avg(col(p + "_mroi"))) },
+      { label: "Avg Hours", value: fmtNum(avg(col("hours"))) },
+      { label: "Avg Rev/Hr", value: "$" + avg(col(p + "_rph")).toFixed(0) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">${schoolName} — Consolidated Monthly View</div>
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Monthly Revenue & Cost Stack", 320)}
+        ${chartCard("ch2", "Efficiency & ROI", 280)}
+        ${chartCard("ch3", "Acquisition Funnel", 280)}
+      </div>
+      ${dataTable("Full Monthly Data Table",
+        ["Month", "Net Rev PC", "Net Rev SC", "Sales Rev", "Stat Rev", "mROI", "ROAS", "Rev/Hr", "Hours", "Shifts", "Cost", "CPA", "CPL", "Acq", "Conv%", "Leads", "Retries"],
+        D.map((d) => [
+          d.short, fmtK(d[p+"_net_churn"]), fmtK(d[p+"_net_sc"]), fmtK(d[p+"_sales"]), fmtK(d[p+"_stat_rev"]),
+          fmtX(d[p+"_mroi"]), fmtX(d[p+"_roas"]), "$"+Math.round(d[p+"_rph"]), fmtNum(d.hours), fmtNum(d.shifts),
+          fmtK(d[p+"_cost"]), fmtDollar(d[p+"_cpa"]), "$"+d[p+"_cpl"].toFixed(1), fmtNum(d[p+"_acq"]),
+          fmtPct(d[p+"_conv"]), fmtNum(d[p+"_leads"]), fmtNum(d[p+"_retries"])
+        ])
+      )}
+    </div>`;
+
+    // Chart 1: Revenue & Cost Stack (grouped bars)
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Sales Rev",
+            data: col(p + "_sales"),
+            backgroundColor: C.purpleFade,
+            borderColor: C.purple,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "end", align: "top", color: C.purple, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: col(p + "_net_sc"),
+            backgroundColor: C.cyanFade,
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+          {
+            label: "Net Rev Post Churn",
+            data: col(p + "_net_churn"),
+            backgroundColor: C.emeraldFade,
+            borderColor: C.emerald,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+          {
+            label: "Media Cost",
+            data: col(p + "_cost"),
+            backgroundColor: C.amberFade,
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "end", align: "top", color: C.amber, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtDollar(ctx.raw)}`,
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [
+                  `  mROI: ${fmtX(d[p+"_mroi"])}  |  ROAS: ${fmtX(d[p+"_roas"])}`,
+                  `  Rev/Hr: $${Math.round(d[p+"_rph"])}  |  Hours: ${fmtNum(d.hours)}`,
+                  `  Rank Net Rev SC: #${d["rk_"+p+"_net_sc"]}  |  Rank Sales: #${d["rk_"+p+"_sales"]}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: baseScaleY("Revenue / Cost ($)"),
+        },
+      },
+    });
+
+    // Chart 2: Efficiency & ROI (bars=hours, line=mROI, line=Rev/Hr)
+    mkChart("ch2", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            backgroundColor: "rgba(148,163,184,0.1)",
+            borderColor: "rgba(148,163,184,0.2)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yHours",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "mROI",
+            data: col(p + "_mroi"),
+            type: "line",
+            borderColor: C.indigo,
+            backgroundColor: C.indigoFade,
+            pointBackgroundColor: C.indigo,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yROI",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.indigo, font: { size: 8, weight: "600" }, formatter: dlFmtX },
+          },
+          {
+            label: "Rev/Hr",
+            data: col(p + "_rph"),
+            type: "line",
+            borderColor: C.cyan,
+            backgroundColor: C.cyanFade,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRPH",
+            order: 0,
+            datalabels: { anchor: "end", align: "bottom", color: C.cyan, font: { size: 8, weight: "600" }, formatter: (v) => "$" + Math.round(v) },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                if (ctx.dataset.label === "Hours") return `Hours: ${fmtNum(ctx.raw)}`;
+                if (ctx.dataset.label === "mROI") return `mROI: ${fmtX(ctx.raw)}`;
+                return `Rev/Hr: $${Math.round(ctx.raw)}`;
+              },
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [`  Shifts: ${d.shifts}  |  ROAS: ${fmtX(d[p+"_roas"])}`, `  Net Rev SC: ${fmtK(d[p+"_net_sc"])}`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left", grid: { color: C.gridLine } },
+          yROI: { position: "right", beginAtZero: true, title: { display: true, text: "mROI", color: C.indigo, font: { size: 10 } }, ticks: { color: C.indigo, font: { size: 9 }, callback: (v) => v.toFixed(1) + "x" }, grid: { display: false } },
+          yRPH: { position: "right", beginAtZero: true, display: false },
+        },
+      },
+    });
+
+    // Chart 3: Acquisition Funnel (bars=leads & acq, line=conv%, line=CPA)
+    mkChart("ch3", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Leads",
+            data: col(p + "_leads"),
+            backgroundColor: "rgba(99,102,241,0.12)",
+            borderColor: "rgba(99,102,241,0.3)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yLeads",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "Acquisitions",
+            data: col(p + "_acq"),
+            backgroundColor: C.indigoFade,
+            borderColor: C.indigo,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            barPercentage: 0.5,
+            yAxisID: "yLeads",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.indigo, font: { size: 8, weight: "600" }, formatter: (v) => fmtNum(v) },
+          },
+          {
+            label: "Conv %",
+            data: col(p + "_conv"),
+            type: "line",
+            borderColor: C.emerald,
+            pointBackgroundColor: C.emerald,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yConv",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: (v) => v.toFixed(1) + "%" },
+          },
+          {
+            label: "CPA",
+            data: col(p + "_cpa"),
+            type: "line",
+            borderColor: C.amber,
+            pointBackgroundColor: C.amber,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            borderDash: [4, 3],
+            yAxisID: "yCPA",
+            order: 0,
+            datalabels: { anchor: "end", align: "bottom", color: C.amber, font: { size: 8, weight: "600" }, formatter: (v) => "$" + Math.round(v) },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                const l = ctx.dataset.label;
+                if (l === "Leads") return `Leads: ${fmtNum(ctx.raw)}`;
+                if (l === "Acquisitions") return `Acquisitions: ${fmtNum(ctx.raw)}`;
+                if (l === "Conv %") return `Conversion: ${ctx.raw.toFixed(1)}%`;
+                return `CPA: $${Math.round(ctx.raw)}`;
+              },
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [`  CPL: $${d[p+"_cpl"].toFixed(1)}  |  Rank Acq: #${d["rk_"+p+"_acq"]}`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yLeads: { ...baseScaleY("Leads / Acq"), position: "left" },
+          yConv: { position: "right", beginAtZero: true, title: { display: true, text: "Conv %", color: C.emerald, font: { size: 10 } }, ticks: { color: C.emerald, font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false } },
+          yCPA: { position: "right", display: false, beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // DB3: Combined — Both Schools Together
+  // ===========================================================================
+  function renderCombined() {
+    const kpis = [
+      { label: "Combined Net Rev (S-C)", value: fmtDollar(avg(col("c_net_sc"))) },
+      { label: "Combined Sales Rev", value: fmtDollar(avg(col("c_sales"))) },
+      { label: "Combined Cost", value: fmtDollar(avg(col("c_cost"))) },
+      { label: "Avg Hours", value: fmtNum(avg(col("hours"))) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">Combined — Both Schools Together</div>
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Revenue by School (Stacked) + Combined Cost", 320)}
+        ${chartCard("ch2", "ROI & Efficiency Comparison", 280)}
+        ${chartCard("ch3", "Resource Allocation", 280)}
+      </div>
+      ${dataTable("Combined Summary Table",
+        ["Month", "R Net SC", "I Net SC", "Combined SC", "R Sales", "I Sales", "Combined Sales", "R Cost", "I Cost", "Combined Cost", "R mROI", "I mROI", "Hours"],
+        D.map((d) => [
+          d.short, fmtK(d.r_net_sc), fmtK(d.i_net_sc), fmtK(d.c_net_sc),
+          fmtK(d.r_sales), fmtK(d.i_sales), fmtK(d.c_sales),
+          fmtK(d.r_cost), fmtK(d.i_cost), fmtK(d.c_cost),
+          fmtX(d.r_mroi), fmtX(d.i_mroi), fmtNum(d.hours)
+        ])
+      )}
+    </div>`;
+
+    // Chart 1: Stacked revenue by school + cost line
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Rosen Net Rev SC",
+            data: col("r_net_sc"),
+            backgroundColor: "rgba(6,182,212,0.5)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            stack: "rev",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "IIBS Net Rev SC",
+            data: col("i_net_sc"),
+            backgroundColor: "rgba(245,158,11,0.5)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            stack: "rev",
+            order: 2,
+            datalabels: {
+              anchor: "end", align: "top", color: C.text,
+              font: { size: 8, weight: "600" },
+              formatter: (v, ctx) => {
+                const rVal = D[ctx.dataIndex].r_net_sc;
+                return dlFmtK(rVal + v);
+              },
+            },
+          },
+          {
+            label: "Combined Cost",
+            data: col("c_cost"),
+            type: "line",
+            borderColor: C.red,
+            borderDash: [6, 3],
+            pointBackgroundColor: C.red,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "y",
+            order: 1,
+            datalabels: { anchor: "end", align: "bottom", color: C.red, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [
+                  `  Combined Net SC: ${fmtK(d.c_net_sc)}`,
+                  `  R Sales: ${fmtK(d.r_sales)}  |  I Sales: ${fmtK(d.i_sales)}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: baseScaleY("Revenue / Cost ($)"),
+        },
+      },
+    });
+
+    // Chart 2: ROI comparison grouped bars + ROAS lines
+    mkChart("ch2", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R mROI",
+            data: col("r_mroi"),
+            backgroundColor: "rgba(6,182,212,0.35)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yROI",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: dlFmtX },
+          },
+          {
+            label: "I mROI",
+            data: col("i_mroi"),
+            backgroundColor: "rgba(245,158,11,0.35)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yROI",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.amber, font: { size: 8, weight: "600" }, formatter: dlFmtX },
+          },
+          {
+            label: "R ROAS",
+            data: col("r_roas"),
+            type: "line",
+            borderColor: C.cyan,
+            borderDash: [5, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yROI",
+            order: 1,
+            datalabels: { display: false },
+          },
+          {
+            label: "I ROAS",
+            data: col("i_roas"),
+            type: "line",
+            borderColor: C.amber,
+            borderDash: [5, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yROI",
+            order: 1,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtX(ctx.raw)}`,
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yROI: { ...baseScaleY("mROI / ROAS"), ticks: { ...baseScaleY("").ticks, callback: (v) => v.toFixed(1) + "x" } },
+        },
+      },
+    });
+
+    // Chart 3: Resource Allocation — Area hours + Rev/Hr lines
+    mkChart("ch3", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            fill: true,
+            backgroundColor: "rgba(148,163,184,0.08)",
+            borderColor: "rgba(148,163,184,0.3)",
+            pointRadius: 0,
+            tension: 0.3,
+            yAxisID: "yHours",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "R Rev/Hr",
+            data: col("r_rph"),
+            borderColor: C.cyan,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRPH",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: (v) => "$" + Math.round(v) },
+          },
+          {
+            label: "I Rev/Hr",
+            data: col("i_rph"),
+            borderColor: C.amber,
+            pointBackgroundColor: C.amber,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRPH",
+            order: 1,
+            datalabels: { anchor: "end", align: "bottom", color: C.amber, font: { size: 8, weight: "600" }, formatter: (v) => "$" + Math.round(v) },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                if (ctx.dataset.label === "Hours") return `Hours: ${fmtNum(ctx.raw)}`;
+                return `${ctx.dataset.label}: $${Math.round(ctx.raw)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left" },
+          yRPH: { position: "right", beginAtZero: true, title: { display: true, text: "Rev/Hr", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => "$" + v }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // DB4: Zero-Sum — Bandwidth Proof
+  // ===========================================================================
+  function renderZeroSum() {
+    const avgRTop = avg(col("r_pct_top"));
+    const avgITop = avg(col("i_pct_top"));
+    const avgOverlap = avg(col("overlap_count"));
+    const gaps = D.map((d) => Math.abs(d.r_pct_top - d.i_pct_top));
+    const avgGap = avg(gaps);
+
+    const kpis = [
+      { label: "Avg R % Top Reps", value: fmtPct(avgRTop) },
+      { label: "Avg I % Top Reps", value: fmtPct(avgITop) },
+      { label: "Avg Overlap", value: avgOverlap.toFixed(1) + " reps" },
+      { label: "Avg Gap |R−I|", value: fmtPct(avgGap) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">Zero-Sum — Bandwidth Proof</div>
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Who Gets the Top Reps?", 320)}
+        ${chartCard("ch2", "Bandwidth → Revenue Impact", 280)}
+        ${chartCard("ch3", "Effort Allocation (Retry Share)", 280)}
+      </div>
+      ${dataTable("Bandwidth Table",
+        ["Month", "Hours", "Shifts", "R % Top", "I % Top", "Gap", "R Net Rev", "I Net Rev", "R mROI", "I mROI", "Overlap", "Shared Reps"],
+        D.map((d) => [
+          d.short, fmtNum(d.hours), fmtNum(d.shifts),
+          fmtPct(d.r_pct_top), fmtPct(d.i_pct_top), fmtPct(Math.abs(d.r_pct_top - d.i_pct_top)),
+          fmtK(d.r_net_sc), fmtK(d.i_net_sc), fmtX(d.r_mroi), fmtX(d.i_mroi),
+          d.overlap_count, { v: (d.overlap_names || []).join(", "), cls: "rep-names" }
+        ])
+      )}
+    </div>`;
+
+    // Chart 1: Who Gets the Top Reps (THE KEY CHART)
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R % Top Reps",
+            data: col("r_pct_top"),
+            backgroundColor: "rgba(6,182,212,0.5)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yPct",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 9, weight: "700" }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "I % Top Reps",
+            data: col("i_pct_top"),
+            backgroundColor: "rgba(245,158,11,0.5)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yPct",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.amber, font: { size: 9, weight: "700" }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "Overlap Count",
+            data: col("overlap_count"),
+            type: "line",
+            borderColor: C.textSec,
+            pointBackgroundColor: C.textSec,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yOverlap",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.textSec, font: { size: 8 }, formatter: (v) => v > 0 ? v : "" },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [
+                  `  Gap: ${fmtPct(Math.abs(d.r_pct_top - d.i_pct_top))}`,
+                  `  R Reps: ${(d.r_top_names||[]).join(", ")}`,
+                  `  I Reps: ${(d.i_top_names||[]).join(", ")}`,
+                  `  Shared: ${(d.overlap_names||[]).join(", ") || "None"}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yPct: { ...baseScaleY("% Top Reps"), max: 100, ticks: { ...baseScaleY("").ticks, callback: (v) => v + "%" } },
+          yOverlap: { position: "right", beginAtZero: true, title: { display: true, text: "Overlap", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, stepSize: 1 }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 2: Bandwidth → Revenue Impact
+    mkChart("ch2", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R Net Rev SC",
+            data: col("r_net_sc"),
+            backgroundColor: "rgba(6,182,212,0.4)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yRev",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "I Net Rev SC",
+            data: col("i_net_sc"),
+            backgroundColor: "rgba(245,158,11,0.4)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yRev",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "R % Top",
+            data: col("r_pct_top"),
+            type: "line",
+            borderColor: C.cyan,
+            borderDash: [5, 3],
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8 }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "I % Top",
+            data: col("i_pct_top"),
+            type: "line",
+            borderColor: C.amber,
+            borderDash: [5, 3],
+            pointBackgroundColor: C.amber,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 1,
+            datalabels: { anchor: "end", align: "bottom", color: C.amber, font: { size: 8 }, formatter: (v) => Math.round(v) + "%" },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [`  R mROI: ${fmtX(d.r_mroi)}  |  I mROI: ${fmtX(d.i_mroi)}`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yRev: { ...baseScaleY("Net Revenue ($)"), position: "left" },
+          yPct: { position: "right", beginAtZero: true, max: 100, title: { display: true, text: "% Top Reps", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => v + "%" }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 3: Effort Allocation (stacked area retry share + hours line)
+    mkChart("ch3", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R Retry Share %",
+            data: col("r_retry_share"),
+            fill: true,
+            backgroundColor: "rgba(6,182,212,0.3)",
+            borderColor: C.cyan,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 2,
+            stack: "share",
+            datalabels: { anchor: "center", align: "center", color: C.cyan, font: { size: 8 }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "I Retry Share %",
+            data: col("i_retry_share"),
+            fill: true,
+            backgroundColor: "rgba(245,158,11,0.3)",
+            borderColor: C.amber,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 2,
+            stack: "share",
+            datalabels: { anchor: "center", align: "center", color: C.amber, font: { size: 8 }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "Hours",
+            data: col("hours"),
+            borderColor: C.textSec,
+            pointBackgroundColor: C.textSec,
+            pointRadius: 3,
+            tension: 0.3,
+            yAxisID: "yHours",
+            order: 1,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [`  R Retries: ${fmtNum(d.r_retries)}  |  I Retries: ${fmtNum(d.i_retries)}`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yPct: { ...baseScaleY("Retry Share %"), position: "left", stacked: true, max: 100, ticks: { ...baseScaleY("").ticks, callback: (v) => v + "%" } },
+          yHours: { position: "right", beginAtZero: true, title: { display: true, text: "Hours", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 } }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // DB5: Fair Context — Inputs → Outputs
+  // ===========================================================================
+  function renderFairContext() {
+    // Use Rosen as the primary school for fair context (sub-tabs could be added)
+    const p = "r";
+    const kpis = [
+      { label: "Avg Hours", value: fmtNum(avg(col("hours"))) },
+      { label: "Avg Shifts", value: fmtNum(avg(col("shifts"))) },
+      { label: "Avg % Top Reps", value: fmtPct(avg(col(p + "_pct_top"))) },
+      { label: "Avg Leads", value: fmtNum(avg(col(p + "_leads"))) },
+      { label: "Avg Net Rev SC", value: fmtDollar(avg(col(p + "_net_sc"))) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">Fair Context — Inputs → Outputs</div>
+      ${subTabs(["Rosen", "IIBS"])}
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Resources Given → Results Produced", 320)}
+        ${chartCard("ch2", "Rep Quality → Revenue", 280)}
+        ${chartCard("ch3", "Input Metrics Trend", 280)}
+      </div>
+      ${dataTable("Input-Output Table",
+        ["Month", "Hours", "Shifts", "Leads", "Retries", "% Top", "→", "Net Rev PC", "Net Rev SC", "Sales Rev", "mROI", "ROAS", "Rev/Hr"],
+        D.map((d) => [
+          d.short, fmtNum(d.hours), fmtNum(d.shifts), fmtNum(d[p+"_leads"]), fmtNum(d[p+"_retries"]),
+          fmtPct(d[p+"_pct_top"]), "→",
+          fmtK(d[p+"_net_churn"]), fmtK(d[p+"_net_sc"]), fmtK(d[p+"_sales"]),
+          fmtX(d[p+"_mroi"]), fmtX(d[p+"_roas"]), "$"+Math.round(d[p+"_rph"])
+        ])
+      )}
+    </div>`;
+    bindSubTabs();
+
+    // Chart 1: Resources Given → Results Produced
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            backgroundColor: "rgba(148,163,184,0.1)",
+            borderColor: "rgba(148,163,184,0.2)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yHours",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "Net Rev Post Churn",
+            data: col(p + "_net_churn"),
+            type: "line",
+            borderColor: C.emerald,
+            pointBackgroundColor: C.emerald,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: col(p + "_net_sc"),
+            type: "line",
+            borderColor: C.cyan,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "bottom", color: C.cyan, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [
+                  `  Shifts: ${d.shifts}  |  % Top: ${fmtPct(d[p+"_pct_top"])}`,
+                  `  mROI: ${fmtX(d[p+"_mroi"])}  |  Rank Hours: #${d.rk_hours}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left" },
+          yRev: { position: "right", beginAtZero: true, title: { display: true, text: "Revenue ($)", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => fmtK(v) }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 2: Rep Quality → Revenue
+    mkChart("ch2", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "% Top Reps",
+            data: col(p + "_pct_top"),
+            backgroundColor: "rgba(6,182,212,0.35)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yPct",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: col(p + "_net_sc"),
+            type: "line",
+            borderColor: C.emerald,
+            pointBackgroundColor: C.emerald,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: { ...baseTooltip },
+        },
+        scales: {
+          x: baseScaleX,
+          yPct: { ...baseScaleY("% Top Reps"), position: "left", max: 100, ticks: { ...baseScaleY("").ticks, callback: (v) => v + "%" } },
+          yRev: { position: "right", beginAtZero: true, title: { display: true, text: "Net Rev SC ($)", color: C.emerald, font: { size: 10 } }, ticks: { color: C.emerald, font: { size: 9 }, callback: (v) => fmtK(v) }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 3: Input Metrics Trend (multi-line normalized)
+    const maxHours = Math.max(...col("hours"));
+    const maxShifts = Math.max(...col("shifts"));
+    const maxLeads = Math.max(...col(p + "_leads"));
+    const maxRetries = Math.max(...col(p + "_retries"));
+
+    mkChart("ch3", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            borderColor: "#60A5FA",
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yHours",
+            datalabels: { display: false },
+          },
+          {
+            label: "Shifts",
+            data: col("shifts"),
+            borderColor: C.purple,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yShifts",
+            datalabels: { display: false },
+          },
+          {
+            label: "Leads",
+            data: col(p + "_leads"),
+            borderColor: C.amber,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yLeads",
+            datalabels: { display: false },
+          },
+          {
+            label: "Retries",
+            data: col(p + "_retries"),
+            borderColor: C.textMuted,
+            borderDash: [4, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yRetries",
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtNum(ctx.raw)}`,
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours / Shifts"), position: "left" },
+          yShifts: { display: false, beginAtZero: true },
+          yLeads: { position: "right", beginAtZero: true, title: { display: true, text: "Leads / Retries", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 } }, grid: { display: false } },
+          yRetries: { display: false, beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  function renderFairContextForPrefix(p) {
+    // Called after subTabs are bound — re-render with the right prefix
+    const schoolName = p === "r" ? "Rosen" : "IIBS";
+    const kpis = [
+      { label: "Avg Hours", value: fmtNum(avg(col("hours"))) },
+      { label: "Avg Shifts", value: fmtNum(avg(col("shifts"))) },
+      { label: "Avg % Top Reps", value: fmtPct(avg(col(p + "_pct_top"))) },
+      { label: "Avg Leads", value: fmtNum(avg(col(p + "_leads"))) },
+      { label: "Avg Net Rev SC", value: fmtDollar(avg(col(p + "_net_sc"))) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">Fair Context — Inputs → Outputs (${schoolName})</div>
+      ${subTabs(["Rosen", "IIBS"])}
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Resources Given → Results Produced", 320)}
+        ${chartCard("ch2", "Rep Quality → Revenue", 280)}
+        ${chartCard("ch3", "Input Metrics Trend", 280)}
+      </div>
+      ${dataTable("Input-Output Table",
+        ["Month", "Hours", "Shifts", "Leads", "Retries", "% Top", "→", "Net Rev PC", "Net Rev SC", "Sales Rev", "mROI", "ROAS", "Rev/Hr"],
+        D.map((d) => [
+          d.short, fmtNum(d.hours), fmtNum(d.shifts), fmtNum(d[p+"_leads"]), fmtNum(d[p+"_retries"]),
+          fmtPct(d[p+"_pct_top"]), "→",
+          fmtK(d[p+"_net_churn"]), fmtK(d[p+"_net_sc"]), fmtK(d[p+"_sales"]),
+          fmtX(d[p+"_mroi"]), fmtX(d[p+"_roas"]), "$"+Math.round(d[p+"_rph"])
+        ])
+      )}
+    </div>`;
+    bindSubTabs();
+
+    // Chart 1
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            backgroundColor: "rgba(148,163,184,0.1)",
+            borderColor: "rgba(148,163,184,0.2)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yHours",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "Net Rev Post Churn",
+            data: col(p + "_net_churn"),
+            type: "line",
+            borderColor: C.emerald,
+            pointBackgroundColor: C.emerald,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: col(p + "_net_sc"),
+            type: "line",
+            borderColor: C.cyan,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "bottom", color: C.cyan, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [
+                  `  Shifts: ${d.shifts}  |  % Top: ${fmtPct(d[p+"_pct_top"])}`,
+                  `  mROI: ${fmtX(d[p+"_mroi"])}  |  Rank Hours: #${d.rk_hours}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left" },
+          yRev: { position: "right", beginAtZero: true, title: { display: true, text: "Revenue ($)", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => fmtK(v) }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 2
+    mkChart("ch2", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "% Top Reps",
+            data: col(p + "_pct_top"),
+            backgroundColor: "rgba(6,182,212,0.35)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yPct",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: col(p + "_net_sc"),
+            type: "line",
+            borderColor: C.emerald,
+            pointBackgroundColor: C.emerald,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: { ...baseTooltip },
+        },
+        scales: {
+          x: baseScaleX,
+          yPct: { ...baseScaleY("% Top Reps"), position: "left", max: 100, ticks: { ...baseScaleY("").ticks, callback: (v) => v + "%" } },
+          yRev: { position: "right", beginAtZero: true, title: { display: true, text: "Net Rev SC ($)", color: C.emerald, font: { size: 10 } }, ticks: { color: C.emerald, font: { size: 9 }, callback: (v) => fmtK(v) }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 3
+    mkChart("ch3", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            borderColor: "#60A5FA",
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yHours",
+            datalabels: { display: false },
+          },
+          {
+            label: "Shifts",
+            data: col("shifts"),
+            borderColor: C.purple,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yHours",
+            datalabels: { display: false },
+          },
+          {
+            label: "Leads",
+            data: col(p + "_leads"),
+            borderColor: C.amber,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yLeads",
+            datalabels: { display: false },
+          },
+          {
+            label: "Retries",
+            data: col(p + "_retries"),
+            borderColor: C.textMuted,
+            borderDash: [4, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yLeads",
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtNum(ctx.raw)}`,
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours / Shifts"), position: "left" },
+          yLeads: { position: "right", beginAtZero: true, title: { display: true, text: "Leads / Retries", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 } }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // DB6: CEO Strategic Overview
+  // ===========================================================================
+  function renderCEOOverview() {
+    const kpis = [
+      { label: "Net Rev Post Churn", rosen: fmtDollar(avg(col("r_net_churn"))), iibs: fmtDollar(avg(col("i_net_churn"))) },
+      { label: "Net Rev (S-C)", rosen: fmtDollar(avg(col("r_net_sc"))), iibs: fmtDollar(avg(col("i_net_sc"))) },
+      { label: "mROI", rosen: fmtX(avg(col("r_mroi"))), iibs: fmtX(avg(col("i_mroi"))) },
+      { label: "ROAS", rosen: fmtX(avg(col("r_roas"))), iibs: fmtX(avg(col("i_roas"))) },
+      { label: "Rev/Hr", rosen: "$" + avg(col("r_rph")).toFixed(0), iibs: "$" + avg(col("i_rph")).toFixed(0) },
+      { label: "Sales Rev", rosen: fmtDollar(avg(col("r_sales"))), iibs: fmtDollar(avg(col("i_sales"))) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">CEO Strategic Overview</div>
+      ${kpiCompareRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Net Revenue Comparison", 280)}
+        ${chartCard("ch2", "ROI Comparison", 260)}
+        ${chartCard("ch3", "Sales Revenue & Cost", 260)}
+        ${chartCard("ch4", "Efficiency — Rev/Hr", 260)}
+      </div>
+    </div>`;
+
+    // Chart 1: Net Revenue Comparison (overlaid areas)
+    mkChart("ch1", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R Net Rev SC",
+            data: col("r_net_sc"),
+            fill: true,
+            backgroundColor: "rgba(6,182,212,0.15)",
+            borderColor: C.cyan,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "I Net Rev SC",
+            data: col("i_net_sc"),
+            fill: true,
+            backgroundColor: "rgba(245,158,11,0.15)",
+            borderColor: C.amber,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtDollar(ctx.raw)}`,
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [`  Gap: ${fmtDollar(d.i_net_sc - d.r_net_sc)}`];
+              },
+            },
+          },
+        },
+        scales: { x: baseScaleX, y: baseScaleY("Net Revenue SC ($)") },
+      },
+    });
+
+    // Chart 2: ROI Comparison
+    mkChart("ch2", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R mROI",
+            data: col("r_mroi"),
+            borderColor: C.cyan,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: dlFmtX },
+          },
+          {
+            label: "I mROI",
+            data: col("i_mroi"),
+            borderColor: C.amber,
+            pointBackgroundColor: C.amber,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            datalabels: { anchor: "end", align: "bottom", color: C.amber, font: { size: 8, weight: "600" }, formatter: dlFmtX },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: { ...baseTooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtX(ctx.raw)}` } },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("mROI"), ticks: { ...baseScaleY("").ticks, callback: (v) => v.toFixed(1) + "x" } },
+        },
+      },
+    });
+
+    // Chart 3: Sales Rev & Cost (4 lines)
+    mkChart("ch3", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "R Sales",
+            data: col("r_sales"),
+            borderColor: C.cyan,
+            pointRadius: 2,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "I Sales",
+            data: col("i_sales"),
+            borderColor: C.amber,
+            pointRadius: 2,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "R Cost",
+            data: col("r_cost"),
+            borderColor: C.cyan,
+            borderDash: [5, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "I Cost",
+            data: col("i_cost"),
+            borderColor: C.amber,
+            borderDash: [5, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtDollar(ctx.raw)}`,
+            },
+          },
+        },
+        scales: { x: baseScaleX, y: baseScaleY("Amount ($)") },
+      },
+    });
+
+    // Chart 4: Efficiency — Rev/Hr + Hours
+    mkChart("ch4", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            backgroundColor: "rgba(148,163,184,0.1)",
+            borderColor: "rgba(148,163,184,0.2)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yHours",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "R Rev/Hr",
+            data: col("r_rph"),
+            type: "line",
+            borderColor: C.cyan,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRPH",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: (v) => "$" + Math.round(v) },
+          },
+          {
+            label: "I Rev/Hr",
+            data: col("i_rph"),
+            type: "line",
+            borderColor: C.amber,
+            pointBackgroundColor: C.amber,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yRPH",
+            order: 1,
+            datalabels: { anchor: "end", align: "bottom", color: C.amber, font: { size: 8, weight: "600" }, formatter: (v) => "$" + Math.round(v) },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: { ...baseTooltip },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left" },
+          yRPH: { position: "right", beginAtZero: true, title: { display: true, text: "Rev/Hr", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => "$" + v }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // DB7: Top Reps — Revenue Correlation (sub-tabs: Rosen/IIBS)
+  // ===========================================================================
+  function renderTopReps() {
+    const sub = activeSubTab === 0 ? "r" : "i";
+    const schoolName = sub === "r" ? "Rosen" : "IIBS";
+    const topData = col(sub + "_pct_top");
+    const revData = col(sub + "_net_sc");
+    const threshold = avg(topData);
+    const highMonths = D.filter((d) => d[sub + "_pct_top"] >= threshold);
+    const lowMonths = D.filter((d) => d[sub + "_pct_top"] < threshold);
+    const avgRevHigh = highMonths.length ? avg(highMonths.map((d) => d[sub + "_net_sc"])) : 0;
+    const avgRevLow = lowMonths.length ? avg(lowMonths.map((d) => d[sub + "_net_sc"])) : 0;
+
+    const kpis = [
+      { label: "Avg % Top Reps", value: fmtPct(avg(topData)) },
+      { label: "Months Above Avg", value: highMonths.length + " / " + D.length },
+      { label: "Avg Rev (HIGH)", value: fmtDollar(avgRevHigh) },
+      { label: "Avg Rev (LOW)", value: fmtDollar(avgRevLow) },
+      { label: "Delta HIGH−LOW", value: fmtDollar(avgRevHigh - avgRevLow) },
+    ];
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">Top Reps — Revenue Correlation (${schoolName})</div>
+      ${subTabs(["Rosen", "IIBS"])}
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "The Correlation — % Top Reps vs Net Revenue", 320)}
+        ${chartCard("ch2", "Revenue by Engagement Level", 280)}
+      </div>
+      <div class="chart-grid cols-2">
+        ${chartCard("ch4", "Scatter — % Top Reps vs Revenue", 260)}
+      </div>
+      ${dataTable("Rep Names & Performance Table",
+        ["Month", "% Top Reps", "Top Rep Names", "Net Rev PC", "Net Rev SC", "Sales Rev", "mROI", "Rev/Hr", "Hours"],
+        D.map((d) => [
+          d.short,
+          { v: fmtPct(d[sub+"_pct_top"]), cls: "cyan-highlight" },
+          { v: (d[sub+"_top_names"]||[]).join(", "), cls: "rep-names" },
+          fmtK(d[sub+"_net_churn"]), fmtK(d[sub+"_net_sc"]), fmtK(d[sub+"_sales"]),
+          fmtX(d[sub+"_mroi"]), "$"+Math.round(d[sub+"_rph"]), fmtNum(d.hours)
+        ])
+      )}
+    </div>`;
+    bindSubTabs();
+
+    // Chart 1: THE CORRELATION (area + line)
+    mkChart("ch1", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "% Top Reps",
+            data: topData,
+            fill: true,
+            backgroundColor: "rgba(6,182,212,0.2)",
+            borderColor: C.cyan,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.cyan, font: { size: 8, weight: "600" }, formatter: (v) => Math.round(v) + "%" },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: revData,
+            borderColor: C.emerald,
+            backgroundColor: C.emerald,
+            pointBackgroundColor: C.emerald,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+            tension: 0.3,
+            yAxisID: "yRev",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                const above = d[sub+"_pct_top"] >= threshold ? "ABOVE" : "BELOW";
+                return [
+                  `  Engagement: ${above} avg (${fmtPct(threshold)})`,
+                  `  mROI: ${fmtX(d[sub+"_mroi"])}  |  Rev/Hr: $${Math.round(d[sub+"_rph"])}`,
+                  `  Top Reps: ${(d[sub+"_top_names"]||[]).join(", ")}`,
+                ];
+              },
+            },
+          },
+          annotation: {
+            annotations: {
+              thresholdLine: {
+                type: "line",
+                yMin: threshold,
+                yMax: threshold,
+                yScaleID: "yPct",
+                borderColor: "rgba(6,182,212,0.4)",
+                borderDash: [6, 3],
+                borderWidth: 1,
+                label: {
+                  display: true,
+                  content: `Avg: ${fmtPct(threshold)}`,
+                  position: "start",
+                  backgroundColor: "rgba(6,182,212,0.2)",
+                  color: C.cyan,
+                  font: { size: 9 },
+                },
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yPct: { ...baseScaleY("% Top Reps"), position: "left", max: 100, ticks: { ...baseScaleY("").ticks, callback: (v) => v + "%" } },
+          yRev: { position: "right", beginAtZero: true, title: { display: true, text: "Net Rev SC ($)", color: C.emerald, font: { size: 10 } }, ticks: { color: C.emerald, font: { size: 9 }, callback: (v) => fmtK(v) }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 2: Revenue Breakdown by Engagement Level
+    const barColors = D.map((d) => d[sub + "_pct_top"] >= threshold ? C.emerald : C.amber);
+    const barBorders = D.map((d) => d[sub + "_pct_top"] >= threshold ? C.emerald : C.amber);
+
+    mkChart("ch2", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Net Rev Post Churn",
+            data: col(sub + "_net_churn"),
+            backgroundColor: barColors.map((c) => c === C.emerald ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.4)"),
+            borderColor: barBorders,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "end", align: "top", color: C.text, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            labels: {
+              color: C.textSec,
+              font: { size: 10, family: "Inter" },
+              generateLabels: () => [
+                { text: "High Engagement (≥ avg)", fillStyle: "rgba(16,185,129,0.4)", strokeStyle: C.emerald, lineWidth: 1 },
+                { text: "Low Engagement (< avg)", fillStyle: "rgba(245,158,11,0.4)", strokeStyle: C.amber, lineWidth: 1 },
+              ],
+            },
+          },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                const above = d[sub+"_pct_top"] >= threshold;
+                return [
+                  `  % Top: ${fmtPct(d[sub+"_pct_top"])} (${above ? "HIGH" : "LOW"})`,
+                  `  mROI: ${fmtX(d[sub+"_mroi"])}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: baseScaleY("Net Rev Post Churn ($)"),
+        },
+      },
+    });
+
+    // Chart 4: Scatter — % Top Reps vs Revenue
+    const scatterData = D.map((d) => ({
+      x: d[sub + "_pct_top"],
+      y: d[sub + "_net_sc"],
+      above: d[sub + "_pct_top"] >= threshold,
+      label: d.short,
+    }));
+
+    mkChart("ch4", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "High Engagement",
+            data: scatterData.filter((s) => s.above),
+            backgroundColor: "rgba(16,185,129,0.6)",
+            borderColor: C.emerald,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+            datalabels: { display: false },
+          },
+          {
+            label: "Low Engagement",
+            data: scatterData.filter((s) => !s.above),
+            backgroundColor: "rgba(245,158,11,0.6)",
+            borderColor: C.amber,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: true },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                const pt = ctx.raw;
+                return `${pt.label}: ${fmtPct(pt.x)} top reps → ${fmtDollar(pt.y)} rev`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, title: { display: true, text: "% Top Reps", color: C.textMuted, font: { size: 10 } }, ticks: { ...baseScaleX.ticks, callback: (v) => v + "%" }, grid: { color: C.gridLine } },
+          y: { ...baseScaleY("Net Rev SC ($)") },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // DB8: Monthly Intelligence Briefing (sub-tabs: Rosen/IIBS/Combined)
+  // ===========================================================================
+  function renderMonthlyIntel() {
+    const subNames = ["Rosen", "IIBS", "Combined"];
+    const sub = activeSubTab;
+    let prefix, schoolName;
+    if (sub === 0) { prefix = "r"; schoolName = "Rosen"; }
+    else if (sub === 1) { prefix = "i"; schoolName = "IIBS"; }
+    else { prefix = null; schoolName = "Combined"; }
+
+    // Compute KPIs
+    let revField, revLabel;
+    if (prefix) {
+      revField = prefix + "_net_churn";
+      revLabel = "Net Rev Post Churn";
+    } else {
+      revField = "c_net_sc";
+      revLabel = "Combined Net Rev SC";
+    }
+    const revArr = col(revField);
+    const bestIdx = revArr.indexOf(Math.max(...revArr));
+    const worstIdx = revArr.indexOf(Math.min(...revArr));
+    const avgRev = avg(revArr);
+    const trend = revArr[revArr.length - 1] > revArr[revArr.length - 4] ? "↑ Up" : "↓ Down";
+
+    const kpis = [
+      { label: "Best Month", value: D[bestIdx].short + " (" + fmtK(revArr[bestIdx]) + ")" },
+      { label: "Worst Month", value: D[worstIdx].short + " (" + fmtK(revArr[worstIdx]) + ")" },
+      { label: "Average " + revLabel, value: fmtDollar(avgRev) },
+      { label: "Trend (3mo)", value: trend },
+    ];
+
+    // Table data
+    let tableHeaders, tableRows;
+    if (prefix) {
+      tableHeaders = ["Month", "Net Rev PC", "Net Rev SC", "Sales Rev", "Stat Rev", "mROI", "ROAS", "Rev/Hr", "Hours", "Cost", "CPA", "Acq", "Leads"];
+      tableRows = D.map((d) => [
+        d.short, fmtK(d[prefix+"_net_churn"]), fmtK(d[prefix+"_net_sc"]), fmtK(d[prefix+"_sales"]),
+        fmtK(d[prefix+"_stat_rev"]), fmtX(d[prefix+"_mroi"]), fmtX(d[prefix+"_roas"]),
+        "$"+Math.round(d[prefix+"_rph"]), fmtNum(d.hours), fmtK(d[prefix+"_cost"]),
+        fmtDollar(d[prefix+"_cpa"]), fmtNum(d[prefix+"_acq"]), fmtNum(d[prefix+"_leads"])
+      ]);
+    } else {
+      tableHeaders = ["Month", "Combined SC", "R Net SC", "I Net SC", "Combined Sales", "R mROI", "I mROI", "Hours", "Combined Cost"];
+      tableRows = D.map((d) => [
+        d.short, fmtK(d.c_net_sc), fmtK(d.r_net_sc), fmtK(d.i_net_sc), fmtK(d.c_sales),
+        fmtX(d.r_mroi), fmtX(d.i_mroi), fmtNum(d.hours), fmtK(d.c_cost)
+      ]);
+    }
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="db-title">Monthly Intelligence Briefing — ${schoolName}</div>
+      ${subTabs(subNames)}
+      ${kpiRow(kpis)}
+      <div class="chart-grid cols-2">
+        ${chartCard("ch1", "Monthly Performance Overview", 320)}
+        ${chartCard("ch2", "Revenue Layers", 280)}
+        ${chartCard("ch3", "Efficiency Over Time", 280)}
+      </div>
+      ${dataTable("Full Metrics Table", tableHeaders, tableRows)}
+    </div>`;
+    bindSubTabs();
+
+    if (prefix) {
+      renderIntelSchool(prefix);
+    } else {
+      renderIntelCombined();
+    }
+  }
+
+  function renderIntelSchool(p) {
+    const revPC = col(p + "_net_churn");
+    const maxRev = Math.max(...revPC);
+    const minRev = Math.min(...revPC);
+
+    // Chart 1: Monthly Performance Overview (gradient bars + mROI line)
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Net Rev Post Churn",
+            data: revPC,
+            backgroundColor: revPC.map((v) => {
+              const pct = (v - minRev) / (maxRev - minRev || 1);
+              if (pct > 0.66) return "rgba(16,185,129,0.5)";
+              if (pct > 0.33) return "rgba(245,158,11,0.4)";
+              return "rgba(239,68,68,0.4)";
+            }),
+            borderColor: revPC.map((v) => {
+              const pct = (v - minRev) / (maxRev - minRev || 1);
+              if (pct > 0.66) return C.emerald;
+              if (pct > 0.33) return C.amber;
+              return C.red;
+            }),
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yRev",
+            order: 2,
+            datalabels: { anchor: "end", align: "top", color: C.text, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+          {
+            label: "mROI",
+            data: col(p + "_mroi"),
+            type: "line",
+            borderColor: C.indigo,
+            pointBackgroundColor: C.indigo,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: "yROI",
+            order: 1,
+            datalabels: { anchor: "end", align: "top", color: C.indigo, font: { size: 8, weight: "600" }, formatter: dlFmtX },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            labels: {
+              color: C.textSec,
+              font: { size: 10, family: "Inter" },
+              boxWidth: 12,
+              padding: 12,
+              generateLabels: (chart) => [
+                { text: "Net Rev PC (green=high, red=low)", fillStyle: "rgba(16,185,129,0.5)", strokeStyle: C.emerald, lineWidth: 1 },
+                { text: "mROI", fillStyle: "transparent", strokeStyle: C.indigo, lineWidth: 2 },
+              ],
+            },
+          },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [
+                  `  Rank Net Rev PC: #${d["rk_"+p+"_net_churn"]}`,
+                  `  Net Rev SC: ${fmtK(d[p+"_net_sc"])}  |  Sales: ${fmtK(d[p+"_sales"])}`,
+                ];
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yRev: { ...baseScaleY("Net Rev Post Churn ($)"), position: "left" },
+          yROI: { position: "right", beginAtZero: true, title: { display: true, text: "mROI", color: C.indigo, font: { size: 10 } }, ticks: { color: C.indigo, font: { size: 9 }, callback: (v) => v.toFixed(1) + "x" }, grid: { display: false } },
+        },
+      },
+    });
+
+    // Chart 2: Revenue Layers (3 layered areas)
+    mkChart("ch2", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Sales Rev",
+            data: col(p + "_sales"),
+            fill: true,
+            backgroundColor: "rgba(168,85,247,0.15)",
+            borderColor: C.purple,
+            pointRadius: 1,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "Net Rev (S-C)",
+            data: col(p + "_net_sc"),
+            fill: true,
+            backgroundColor: "rgba(6,182,212,0.15)",
+            borderColor: C.cyan,
+            pointRadius: 1,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "Net Rev Post Churn",
+            data: col(p + "_net_churn"),
+            fill: true,
+            backgroundColor: "rgba(16,185,129,0.15)",
+            borderColor: C.emerald,
+            pointRadius: 1,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${fmtDollar(ctx.raw)}`,
+            },
+          },
+        },
+        scales: { x: baseScaleX, y: baseScaleY("Revenue ($)") },
+      },
+    });
+
+    // Chart 3: Efficiency Over Time (Rev/Hr + mROI + ROAS lines, Hours bars)
+    mkChart("ch3", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            backgroundColor: "rgba(148,163,184,0.08)",
+            borderColor: "rgba(148,163,184,0.15)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yHours",
+            order: 3,
+            datalabels: { display: false },
+          },
+          {
+            label: "Rev/Hr",
+            data: col(p + "_rph"),
+            type: "line",
+            borderColor: C.cyan,
+            pointBackgroundColor: C.cyan,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yEff",
+            order: 1,
+            datalabels: { display: false },
+          },
+          {
+            label: "mROI",
+            data: col(p + "_mroi"),
+            type: "line",
+            borderColor: C.indigo,
+            pointBackgroundColor: C.indigo,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yROI2",
+            order: 1,
+            datalabels: { display: false },
+          },
+          {
+            label: "ROAS",
+            data: col(p + "_roas"),
+            type: "line",
+            borderColor: C.amber,
+            borderDash: [4, 3],
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yROI2",
+            order: 2,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                const l = ctx.dataset.label;
+                if (l === "Hours") return `Hours: ${fmtNum(ctx.raw)}`;
+                if (l === "Rev/Hr") return `Rev/Hr: $${Math.round(ctx.raw)}`;
+                return `${l}: ${fmtX(ctx.raw)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left" },
+          yEff: { display: false, beginAtZero: true },
+          yROI2: { position: "right", beginAtZero: true, title: { display: true, text: "mROI / ROAS", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => v.toFixed(1) + "x" }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  function renderIntelCombined() {
+    const revData = col("c_net_sc");
+    const maxRev = Math.max(...revData);
+    const minRev = Math.min(...revData);
+
+    // Chart 1: Combined performance
+    mkChart("ch1", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Combined Net Rev SC",
+            data: revData,
+            backgroundColor: revData.map((v) => {
+              const pct = (v - minRev) / (maxRev - minRev || 1);
+              if (pct > 0.66) return "rgba(16,185,129,0.5)";
+              if (pct > 0.33) return "rgba(245,158,11,0.4)";
+              return "rgba(239,68,68,0.4)";
+            }),
+            borderColor: revData.map((v) => {
+              const pct = (v - minRev) / (maxRev - minRev || 1);
+              if (pct > 0.66) return C.emerald;
+              if (pct > 0.33) return C.amber;
+              return C.red;
+            }),
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "end", align: "top", color: C.text, font: { size: 8, weight: "600" }, formatter: dlFmtK },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                const d = D[i];
+                return [`  R: ${fmtK(d.r_net_sc)}  |  I: ${fmtK(d.i_net_sc)}`];
+              },
+            },
+          },
+        },
+        scales: { x: baseScaleX, y: baseScaleY("Combined Net Rev SC ($)") },
+      },
+    });
+
+    // Chart 2: Revenue layers combined
+    mkChart("ch2", {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Combined Sales",
+            data: col("c_sales"),
+            fill: true,
+            backgroundColor: "rgba(168,85,247,0.12)",
+            borderColor: C.purple,
+            pointRadius: 1,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "Combined Net SC",
+            data: col("c_net_sc"),
+            fill: true,
+            backgroundColor: "rgba(6,182,212,0.12)",
+            borderColor: C.cyan,
+            pointRadius: 1,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+          {
+            label: "Combined Cost",
+            data: col("c_cost"),
+            borderColor: C.red,
+            borderDash: [5, 3],
+            pointRadius: 1,
+            tension: 0.3,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmtDollar(ctx.raw)}` },
+          },
+        },
+        scales: { x: baseScaleX, y: baseScaleY("Amount ($)") },
+      },
+    });
+
+    // Chart 3: R vs I efficiency
+    mkChart("ch3", {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Hours",
+            data: col("hours"),
+            backgroundColor: "rgba(148,163,184,0.08)",
+            borderColor: "rgba(148,163,184,0.15)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yHours",
+            order: 2,
+            datalabels: { display: false },
+          },
+          {
+            label: "R mROI",
+            data: col("r_mroi"),
+            type: "line",
+            borderColor: C.cyan,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yROI",
+            order: 1,
+            datalabels: { display: false },
+          },
+          {
+            label: "I mROI",
+            data: col("i_mroi"),
+            type: "line",
+            borderColor: C.amber,
+            pointRadius: 2,
+            tension: 0.3,
+            yAxisID: "yROI",
+            order: 1,
+            datalabels: { display: false },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                if (ctx.dataset.label === "Hours") return `Hours: ${fmtNum(ctx.raw)}`;
+                return `${ctx.dataset.label}: ${fmtX(ctx.raw)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          yHours: { ...baseScaleY("Hours"), position: "left" },
+          yROI: { position: "right", beginAtZero: true, title: { display: true, text: "mROI", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: (v) => v.toFixed(1) + "x" }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // RENDER DISPATCHER
+  // ===========================================================================
+  function render() {
+    destroyCharts();
+    switch (activeDb) {
+      case 0: renderSchoolPL("r", "Rosen"); break;
+      case 1: renderSchoolPL("i", "IIBS"); break;
+      case 2: renderCombined(); break;
+      case 3: renderZeroSum(); break;
+      case 4:
+        const fairPrefix = activeSubTab === 0 ? "r" : "i";
+        renderFairContextForPrefix(fairPrefix);
+        break;
+      case 5: renderCEOOverview(); break;
+      case 6: renderTopReps(); break;
+      case 7: renderMonthlyIntel(); break;
+    }
+  }
+
+  // Initial render
+  render();
 })();
