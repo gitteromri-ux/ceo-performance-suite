@@ -1,5 +1,5 @@
 /* ============================================
-   CEO PERFORMANCE SUITE — V7
+   CEO PERFORMANCE SUITE — V8
    Dark Navy / Frosted Glass / Inter
    ============================================ */
 
@@ -287,6 +287,7 @@ a { color: var(--accent-indigo); text-decoration: none; }
 .chart-grid {
   display: grid;
   gap: 16px;
+  margin-bottom: 22px;
 }
 .chart-grid.cols-2 {
   grid-template-columns: repeat(2, 1fr);
@@ -336,6 +337,109 @@ a { color: var(--accent-indigo); text-decoration: none; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ============================================
+   DATA TABLE — Frosted Glass Style
+   ============================================ */
+.data-table-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.data-table-card .chart-card-title {
+  margin-bottom: 14px;
+}
+.data-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 600px;
+  border-radius: var(--radius-sm);
+}
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.data-table th {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 10px 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.data-table th:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: rgba(15, 23, 42, 0.95);
+}
+.data-table td {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+}
+.data-table td:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-primary);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-deep);
+}
+.data-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.data-table tbody tr:nth-child(even) td:first-child {
+  background: rgba(11, 17, 32, 0.95);
+}
+.data-table tbody tr:nth-child(odd) td:first-child {
+  background: var(--bg-deep);
+}
+.data-table tbody tr:hover td {
+  background: rgba(99, 102, 241, 0.06);
+}
+.data-table tbody tr:hover td:first-child {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* Highlighted cyan column (for DB7 rep names table) */
+.data-table td.cyan-highlight {
+  background: rgba(6, 182, 212, 0.15) !important;
+  color: var(--accent-cyan);
+  font-size: 16px;
+  font-weight: 700;
+}
+.data-table td.rep-names {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 1024px) {
   .kpi-row.cols-5 { grid-template-columns: repeat(3, 1fr); }
@@ -365,7 +469,7 @@ a { color: var(--accent-indigo); text-decoration: none; }
 }
 
 /* ---- Scrollbar ---- */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.25); }
