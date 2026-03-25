@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <!--
    ______                            __
@@ -11,368 +11,100 @@
         Created with Perplexity Computer
         https://www.perplexity.ai/computer
 -->
+
+<!-- Perplexity Computer Attribution — SEO Meta Tags -->
 <meta name="generator" content="Perplexity Computer">
 <meta name="author" content="Perplexity Computer">
 <meta property="og:see_also" content="https://www.perplexity.ai/computer">
 <link rel="author" href="https://www.perplexity.ai/computer">
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CEO Performance Suite | Board Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<title>CEO Performance Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=cabinet-grotesk@500,700,800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Navigation -->
-  <nav class="nav">
-    <div class="nav-inner">
-      <div class="nav-brand">
-        <svg class="nav-logo" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="CEO Suite Logo">
-          <path d="M4 22V14a2 2 0 012-2h2a2 2 0 012 2v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5"/>
-          <path d="M11 22V8a2 2 0 012-2h2a2 2 0 012 2v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.7"/>
-          <path d="M18 22V4a2 2 0 012-2h2a2 2 0 012 2v18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-          <line x1="2" y1="22" x2="26" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
-        </svg>
-        <span class="nav-title">CEO Performance Suite</span>
-      </div>
-      <div class="nav-tabs" id="main-tabs">
-        <button class="nav-tab active" data-tab="db1">Rosen P&L</button>
-        <button class="nav-tab" data-tab="db2">IIBS P&L</button>
-        <button class="nav-tab" data-tab="db3">Combined</button>
-        <button class="nav-tab" data-tab="db4">Zero-Sum</button>
-        <button class="nav-tab" data-tab="db5">Fair Context</button>
-        <button class="nav-tab" data-tab="db6">CEO Overview</button>
-        <button class="nav-tab" data-tab="db7">Top Reps</button>
-        <button class="nav-tab" data-tab="db8">Intel Brief</button>
-      </div>
-      <div class="nav-meta">
-        <span class="nav-badge">Board Report</span>
-        <span class="nav-date">Jan '24 – Feb '26</span>
-      </div>
-    </div>
+
+<!-- Sidebar Navigation -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <svg class="sidebar-logo" viewBox="0 0 32 32" fill="none" aria-label="CEO Suite logo">
+      <rect x="2" y="2" width="28" height="28" rx="6" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 16h16M16 8v16" stroke="#6366F1" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="16" cy="16" r="4" fill="#6366F1" opacity="0.3"/>
+    </svg>
+    <span class="sidebar-title">CEO Suite</span>
+  </div>
+
+  <nav class="sidebar-nav" id="sidebarNav">
+    <div class="nav-section-label">Financial</div>
+    <button class="nav-item active" data-db="0">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path d="M2 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1H3a1 1 0 01-1-1V4zm5 2a1 1 0 011-1h2a1 1 0 011 1v10a1 1 0 01-1 1H8a1 1 0 01-1-1V6zm5-4a1 1 0 011-1h2a1 1 0 011 1v14a1 1 0 01-1 1h-2a1 1 0 01-1-1V2z"/></svg>
+      Rosen P&L
+    </button>
+    <button class="nav-item" data-db="1">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path d="M2 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1H3a1 1 0 01-1-1V4zm5 2a1 1 0 011-1h2a1 1 0 011 1v10a1 1 0 01-1 1H8a1 1 0 01-1-1V6zm5-4a1 1 0 011-1h2a1 1 0 011 1v14a1 1 0 01-1 1h-2a1 1 0 01-1-1V2z"/></svg>
+      IIBS P&L
+    </button>
+    <button class="nav-item" data-db="2">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3z"/></svg>
+      Combined View
+    </button>
+
+    <div class="nav-section-label">Operations</div>
+    <button class="nav-item" data-db="3">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+      Zero-Sum Bandwidth
+    </button>
+    <button class="nav-item" data-db="4">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+      Fair Context
+    </button>
+
+    <div class="nav-section-label">Intelligence</div>
+    <button class="nav-item" data-db="5">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
+      CEO Strategic Overview
+    </button>
+    <button class="nav-item" data-db="6">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+      Top Reps Correlation
+    </button>
+    <button class="nav-item" data-db="7">
+      <svg viewBox="0 0 20 20" fill="currentColor" class="nav-icon"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm2 10a1 1 0 10-2 0v3a1 1 0 102 0v-3zm2-3a1 1 0 011 1v5a1 1 0 11-2 0v-5a1 1 0 011-1zm4-1a1 1 0 10-2 0v7a1 1 0 102 0V8z" clip-rule="evenodd"/></svg>
+      Monthly Intelligence
+    </button>
   </nav>
 
-  <!-- DB1: Rosen Bottom Line Performance -->
-  <section id="db1" class="dashboard active">
-    <div class="dash-header">
-      <h1 class="dash-title">Rosen — Bottom Line Performance</h1>
-      <p class="dash-subtitle">Monthly performance with focus on bottom-line metrics: Net Revenue (Sales−Cost), Net Revenue Post Churn, mROI, ROAS, and Revenue per Hour.</p>
-    </div>
-    <div class="kpi-row" id="db1-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Net Rev Post Churn vs Net Rev (S−C) vs Sales Rev</h3>
-          <span class="chart-badge">26 months</span>
-        </div>
-        <div class="chart-container" style="height:460px"><canvas id="db1-lines"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>mROI (bars) vs Hours Given (line)</h3>
-          <span class="chart-badge">Dual axis</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db1-mroi"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Cost per Acquisition by Month</h3>
-          <span class="chart-badge">CPA trend</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db1-cpa"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db1-insight"></div>
-  </section>
-
-  <!-- DB2: IIBS Bottom Line Performance -->
-  <section id="db2" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">IIBS — Bottom Line Performance</h1>
-      <p class="dash-subtitle">Monthly performance with focus on bottom-line metrics: Net Revenue (Sales−Cost), Net Revenue Post Churn, mROI, ROAS, and Revenue per Hour.</p>
-    </div>
-    <div class="kpi-row" id="db2-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Net Rev Post Churn vs Net Rev (S−C) vs Sales Rev</h3>
-          <span class="chart-badge">26 months</span>
-        </div>
-        <div class="chart-container" style="height:460px"><canvas id="db2-lines"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>mROI (bars) vs Hours Given (line)</h3>
-          <span class="chart-badge">Dual axis</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db2-mroi"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Cost per Acquisition by Month</h3>
-          <span class="chart-badge">CPA trend</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db2-cpa"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db2-insight"></div>
-  </section>
-
-  <!-- DB3: Combined Total Business -->
-  <section id="db3" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">Combined — Total Business View</h1>
-      <p class="dash-subtitle">Aggregated performance across Rosen and IIBS, showing how both schools contribute to the total business.</p>
-    </div>
-    <div class="kpi-row" id="db3-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Stacked Net Revenue: Rosen + IIBS</h3>
-          <span class="chart-badge">Monthly breakdown</span>
-        </div>
-        <div class="chart-container" style="height:460px"><canvas id="db3-stacked"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Rosen mROI vs IIBS mROI</h3>
-          <span class="chart-badge">Overlaid comparison</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db3-mroi"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Hours & Shifts Trend</h3>
-          <span class="chart-badge">Shared resources</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db3-hours"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db3-insight"></div>
-  </section>
-
-  <!-- DB4: Zero-Sum Shared Rep Bandwidth -->
-  <section id="db4" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">Zero-Sum — Shared Rep Bandwidth</h1>
-      <p class="dash-subtitle">The same reps serve both schools with finite bandwidth. When one school gets more attention, the other gets less.</p>
-    </div>
-    <div class="kpi-row" id="db4-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Rosen % Top Reps vs IIBS % Top Reps</h3>
-          <span class="chart-badge">Side by side — inverse pattern</span>
-        </div>
-        <div class="chart-container" style="height:460px"><canvas id="db4-dual-bar"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Inverse Correlation Scatter</h3>
-          <span class="chart-badge">X: Rosen % · Y: IIBS %</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db4-scatter"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Overlap Count Over Time</h3>
-          <span class="chart-badge">Reps serving both schools</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db4-overlap"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Bandwidth Allocation: Retry Share</h3>
-          <span class="chart-badge">Stacked area — always sums to 100%</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db4-retry"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db4-insight"></div>
-  </section>
-
-  <!-- DB5: Fair Context — Rosen Inputs vs Outputs -->
-  <section id="db5" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">Fair Context — Rosen Inputs vs Outputs</h1>
-      <p class="dash-subtitle">Rosen's results correlate directly to operational inputs (hours, shifts, leads, top reps). When inputs are high, results follow.</p>
-    </div>
-    <div class="kpi-row" id="db5-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Hours Given (bars) vs Net Rev Post Churn (line)</h3>
-          <span class="chart-badge">Input → Output correlation</span>
-        </div>
-        <div class="chart-container" style="height:460px"><canvas id="db5-main"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Hours vs Net Rev (S−C)</h3>
-          <span class="chart-badge">Scatter correlation</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db5-scatter-hours"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>% Top Reps vs Net Rev (S−C)</h3>
-          <span class="chart-badge">Scatter correlation</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db5-scatter-reps"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Leads Supplied & Retries per Month</h3>
-          <span class="chart-badge">Operational inputs</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db5-leads"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db5-insight"></div>
-  </section>
-
-  <!-- DB6: CEO Strategic Overview -->
-  <section id="db6" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">CEO Strategic Overview</h1>
-      <p class="dash-subtitle">High-level cross-account comparison of key financial and performance metrics for Rosen vs IIBS.</p>
-    </div>
-    <div class="kpi-row" id="db6-kpis"></div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Net Revenue (Sales − Cost)</h3>
-          <span class="chart-badge">Rosen vs IIBS</span>
-        </div>
-        <div class="chart-container" style="height:400px"><canvas id="db6-netrev"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Marketing ROI (mROI)</h3>
-          <span class="chart-badge">Rosen vs IIBS</span>
-        </div>
-        <div class="chart-container" style="height:400px"><canvas id="db6-mroi"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Sales Revenue</h3>
-          <span class="chart-badge">Rosen vs IIBS</span>
-        </div>
-        <div class="chart-container" style="height:400px"><canvas id="db6-sales"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Media Cost</h3>
-          <span class="chart-badge">Rosen vs IIBS</span>
-        </div>
-        <div class="chart-container" style="height:400px"><canvas id="db6-cost"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db6-insight"></div>
-  </section>
-
-  <!-- DB7: Top Reps Revenue Correlation -->
-  <section id="db7" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">Top Reps — Revenue Correlation</h1>
-      <p class="dash-subtitle">Direct link between top rep engagement (% of leads contacted by top reps) and revenue outcomes.</p>
-    </div>
-    <div class="sub-tabs" id="db7-subtabs">
-      <button class="sub-tab active" data-subtab="rosen">Rosen</button>
-      <button class="sub-tab" data-subtab="iibs">IIBS</button>
-    </div>
-    <div class="kpi-row" id="db7-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>% Top Reps (area) vs Net Rev S−C (line)</h3>
-          <span class="chart-badge">Shapes should track each other</span>
-        </div>
-        <div class="chart-container" style="height:460px"><canvas id="db7-main"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Scatter: % Top Reps vs Net Rev</h3>
-          <span class="chart-badge">With trend line</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db7-scatter"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Top 10 Months by Net Rev</h3>
-          <span class="chart-badge">% Top Reps labeled</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db7-top10"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db7-insight"></div>
-  </section>
-
-  <!-- DB8: Monthly Intelligence Briefing -->
-  <section id="db8" class="dashboard">
-    <div class="dash-header">
-      <h1 class="dash-title">Monthly Intelligence Briefing</h1>
-      <p class="dash-subtitle">Overall monthly trends for the most important metrics. Trend lines over time plus a visual ranking of all months.</p>
-    </div>
-    <div class="sub-tabs" id="db8-subtabs">
-      <button class="sub-tab active" data-subtab="rosen">Rosen</button>
-      <button class="sub-tab" data-subtab="iibs">IIBS</button>
-      <button class="sub-tab" data-subtab="combined">Combined</button>
-    </div>
-    <div class="kpi-row" id="db8-kpis"></div>
-    <div class="chart-grid-single">
-      <div class="chart-card chart-card-large">
-        <div class="chart-card-header">
-          <h3>Net Revenue Post Churn — 26 Month Trend</h3>
-          <span class="chart-badge">Monthly trend</span>
-        </div>
-        <div class="chart-container" style="height:420px"><canvas id="db8-trend"></canvas></div>
-      </div>
-    </div>
-    <div class="chart-grid-double">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>mROI & ROAS Trends</h3>
-          <span class="chart-badge">Dual metric</span>
-        </div>
-        <div class="chart-container" style="height:380px"><canvas id="db8-ratios"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>All Months Ranked by Net Rev Post Churn</h3>
-          <span class="chart-badge">Horizontal bars</span>
-        </div>
-        <div class="chart-container" style="height:500px"><canvas id="db8-rank"></canvas></div>
-      </div>
-    </div>
-    <div class="insight-banner" id="db8-insight"></div>
-  </section>
-
-  <footer class="footer">
-    <p>Data period: January 2024 – February 2026 · 26 months analyzed</p>
+  <div class="sidebar-footer">
     <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">Created with Perplexity Computer</a>
-  </footer>
+  </div>
+</aside>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+<!-- Mobile header -->
+<header class="mobile-header" id="mobileHeader">
+  <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <span class="mobile-title">CEO Suite</span>
+</header>
+
+<!-- Overlay for mobile sidebar -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Main Content -->
+<main class="main-content" id="mainContent">
+  <div class="dashboard-container" id="dashboardContainer">
+    <!-- Dynamically rendered by app.js -->
+  </div>
+</main>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
