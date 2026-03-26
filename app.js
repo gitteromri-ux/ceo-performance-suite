@@ -2163,7 +2163,7 @@
           { label: "Golden Rosen Threshold", value: "75%", cls: "accent-green" },
           { label: "Golden IIBS Threshold", value: "60%", cls: "accent-green" },
           { label: "Correlation Rosen", value: "r = 0.71", sub: "p < 0.01" },
-          { label: "Revenue at Stake", value: "$1.02M", cls: "accent-amber" },
+          { label: "Revenue at Stake", value: "$780K", cls: "accent-amber" },
         ])}
 
         <div class="chart-grid cols-2">
@@ -2186,7 +2186,7 @@
 
         <div class="verdict-banner">
           <div class="verdict-label">Verdict</div>
-          <div class="verdict-text">Maintaining ≥75% top rep engagement in Rosen and ≥60% in IIBS is the single highest-impact operational standard. Combined with directed lead assignment, the revenue upside exceeds $1.6M/month.</div>
+          <div class="verdict-text">Maintaining ≥75% top rep engagement in Rosen and ≥60% in IIBS is the single highest-impact operational standard. Combined with directed lead assignment, the revenue upside exceeds $1.2M/month.</div>
         </div>
       </div>
     `;
@@ -2406,8 +2406,8 @@
               rDelta: {
                 type: "label",
                 xValue: 0.5,
-                yValue: avg(col("r_net_sc")) + 529000 + 80000,
-                content: ["+$529K/mo"],
+                yValue: avg(col("r_net_sc")) + 410000 + 80000,
+                content: ["+$410K/mo"],
                 color: C.cyan,
                 font: { size: 12, weight: "bold" },
                 backgroundColor: "transparent",
@@ -2415,8 +2415,8 @@
               iDelta: {
                 type: "label",
                 xValue: 2.5,
-                yValue: avg(col("i_net_sc")) + 1120000 + 80000,
-                content: ["+$1.12M/mo"],
+                yValue: avg(col("i_net_sc")) + 870000 + 80000,
+                content: ["+$870K/mo"],
                 color: C.amber,
                 font: { size: 12, weight: "bold" },
                 backgroundColor: "transparent",
@@ -2896,8 +2896,8 @@
         ${initKpiRow([
           { label: "Rosen Gap", value: "32% Under", cls: "accent-red" },
           { label: "IIBS Gap", value: "28% Under", cls: "accent-red" },
-          { label: "Combined Monthly Revenue Gap", value: "$291K" },
-          { label: "Annual Revenue Opportunity", value: "$3.5M", cls: "accent-green" },
+          { label: "Combined Monthly Revenue Gap", value: "$230K" },
+          { label: "Annual Revenue Opportunity", value: "$2.8M", cls: "accent-green" },
         ])}
 
         <div class="chart-grid cols-2">
@@ -2931,7 +2931,7 @@
 
         <div class="verdict-banner">
           <div class="verdict-label">Verdict</div>
-          <div class="verdict-text">Consistently 28-32% below lead targets in both schools. At current conversion rates, closing this gap would add $291K/month ($3.5M/year) in revenue. This requires proportional media spend increases and better lead-to-rep allocation.</div>
+          <div class="verdict-text">Consistently 28-32% below lead targets in both schools. At current conversion rates, closing this gap would add $230K/month ($2.8M/year) in revenue. This requires proportional media spend increases and better lead-to-rep allocation.</div>
         </div>
       </div>
     `;
@@ -3022,7 +3022,7 @@
     const rCurrentRev = avg(col("r_net_sc"));
     const iCurrentRev = avg(col("i_net_sc"));
     const combinedCurrent = rCurrentRev + iCurrentRev;
-    const combinedTarget = combinedCurrent + 291000;
+    const combinedTarget = combinedCurrent + 230000;
 
     mkChart("init4c3", {
       type: "bar",
@@ -3065,7 +3065,7 @@
                 type: "label",
                 xValue: 1,
                 yValue: combinedTarget * 0.55,
-                content: ["+$291K/mo", "+$3.5M/year"],
+                content: ["+$230K/mo", "+$2.8M/year"],
                 color: "#10B981",
                 font: { size: 14, weight: "bold" },
                 backgroundColor: "rgba(16,185,129,0.08)",
@@ -3099,7 +3099,7 @@
 
     container.innerHTML = `<div class="dashboard-view">
       <div class="init-headline">Strategic Initiatives — Overview</div>
-      <div class="init-subtitle">All initiatives grouped by implementation timeline. Combined addressable opportunity: $7.2M annually.</div>
+      <div class="init-subtitle">All initiatives grouped by implementation timeline. Combined addressable opportunity: $5.6M annually.</div>
 
       <div class="overview-columns">
         <!-- LEFT: IMMEDIATE -->
@@ -3149,7 +3149,7 @@
 
           <div class="overview-box">
             <div class="overview-box-title">Lead Target Rebalancing</div>
-            <div class="overview-box-desc">Close the 28-32% delivery gap = +$291K/mo</div>
+            <div class="overview-box-desc">Close the 28-32% delivery gap = +$230K/mo</div>
             <span class="overview-box-link" data-nav="init4">See Tab &rarr;</span>
           </div>
         </div>
@@ -3157,8 +3157,8 @@
 
       <div class="overview-impact-banner">
         <div class="overview-impact-label">Combined Annual Impact</div>
-        <div class="overview-impact-value">$7.2M</div>
-        <div class="overview-impact-sub">Baselines $756K + Weekend $576K + Lead Gap $3.5M + LeadGen $2.4M</div>
+        <div class="overview-impact-value">$5.6M</div>
+        <div class="overview-impact-sub">Baselines $630K + Weekend $576K + Lead Gap $2.8M + LeadGen $1.6M</div>
       </div>
     </div>`;
 
@@ -3179,8 +3179,8 @@
       ${initKpiRow([
         { label: "Test Budget Rosen", value: "$29K/mo", cls: "accent-amber" },
         { label: "Test Budget IIBS", value: "$40K/mo", cls: "accent-amber" },
-        { label: "Projected ROI Rosen", value: "180%", cls: "accent-green" },
-        { label: "Projected ROI IIBS", value: "194%", cls: "accent-green" },
+        { label: "Projected ROI Rosen", value: "155%", cls: "accent-green" },
+        { label: "Projected ROI IIBS", value: "165%", cls: "accent-green" },
       ])}
 
       <!-- Chart 1: How it works - comparison cards -->
@@ -3270,7 +3270,7 @@
 
       <div class="verdict-banner">
         <div class="verdict-label">Verdict</div>
-        <div class="verdict-text">At $25 CPL with conservative 5% conversion, the LeadGen model delivers 180-194% ROI vs 136-151% on current model. Lower risk per lead, better unit economics, no disruption to existing high-performer pipeline.</div>
+        <div class="verdict-text">At $25 CPL with conservative 5% conversion, the LeadGen model delivers 155-165% ROI vs 136-151% on current model. Lower risk per lead, better unit economics, no disruption to existing high-performer pipeline.</div>
       </div>
     </div>`;
 
