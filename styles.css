@@ -803,8 +803,69 @@ canvas { display: block; }
   line-height: 1.5;
 }
 
+/* ============================================
+   CALL STANDARDS TAB
+   ============================================ */
+
+/* Insight text below charts */
+.std-insight {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(99, 102, 241, 0.04);
+  border-left: 3px solid var(--accent-indigo);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Rockstar rep name styling — 16px bold white */
+.std-rep-name {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #e2e8f0 !important;
+  text-align: left !important;
+  white-space: nowrap;
+}
+
+/* Rockstar table row colors */
+.rockstar-table tr.rockstar-green td {
+  background: rgba(16, 185, 129, 0.04);
+}
+.rockstar-table tr.rockstar-green:hover td {
+  background: rgba(16, 185, 129, 0.10);
+}
+.rockstar-table tr.rockstar-amber td {
+  background: rgba(245, 158, 11, 0.04);
+}
+.rockstar-table tr.rockstar-amber:hover td {
+  background: rgba(245, 158, 11, 0.10);
+}
+.rockstar-table tr.rockstar-red td {
+  background: rgba(239, 68, 68, 0.04);
+}
+.rockstar-table tr.rockstar-red:hover td {
+  background: rgba(239, 68, 68, 0.10);
+}
+
+/* Consistency bar */
+.consistency-bar-wrap {
+  width: 120px;
+  height: 10px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.consistency-bar {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
 @media (max-width: 768px) {
   .overview-columns { grid-template-columns: 1fr; }
   .comparison-grid { grid-template-columns: 1fr; }
   .overview-impact-value { font-size: 36px; }
+  .consistency-bar-wrap { width: 80px; }
+  .std-rep-name { font-size: 14px !important; }
 }

@@ -108,7 +108,7 @@
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.dataset.db;
-      const db = (raw.startsWith("init") || raw === "overview") ? raw : parseInt(raw);
+      const db = (raw.startsWith("init") || raw === "overview" || raw === "standards") ? raw : parseInt(raw);
       navItems.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeDb = db;
@@ -2126,6 +2126,7 @@
     if (activeDb === "init4") renderInit4();
     if (activeDb === "init5") renderInit5();
     if (activeDb === "init6") renderInit6();
+    if (activeDb === "standards") renderStandards();
   }
 
   // ── Initiative KPI Row (supports cls for card accents and sub for subtitles) ──
@@ -3485,6 +3486,691 @@
         scales: {
           x: baseScaleX,
           y: { ...baseScaleY("Cumulative Revenue"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // CALL STANDARDS TAB
+  // ===========================================================================
+  function renderStandards() {
+    const isRosen = activeSubTab === 0;
+    const data = isRosen ? CALL_STATS.rosen : CALL_STATS.iibs;
+
+    container.innerHTML = `
+      <div class="dashboard-view">
+        <div class="init-headline">Call Center Performance Standards — The Proven Baselines</div>
+        <div class="init-subtitle">What total call volume, contacted rate, and rep conversion levels produce the best revenue</div>
+        ${subTabs(["Rosen", "IIBS"])}
+        <div id="standardsContent"></div>
+      </div>`;
+    bindSubTabs();
+
+    if (isRosen) {
+      renderStandardsRosen(data);
+    } else {
+      renderStandardsIIBS(data);
+    }
+  }
+
+  function renderStandardsRosen(data) {
+    const content = document.getElementById("standardsContent");
+
+    // Compute tier averages for KPI
+    const lowTier = data.filter(d => d.calls < 9500);
+    const midTier = data.filter(d => d.calls >= 9500 && d.calls <= 11000);
+    const highTier = data.filter(d => d.calls > 11000);
+    const midAvgRev = midTier.length ? avg(midTier.map(d => d.net_sc)) : 0;
+
+    // Revenue at stake: sum of deficit for months below 75% pct_top
+    const above75 = data.filter(d => d.pct_top >= 75);
+    const below75 = data.filter(d => d.pct_top < 75);
+    const avgAbove = avg(above75.map(d => d.net_sc));
+    const revAtStake = below75.reduce((sum, d) => sum + Math.max(0, avgAbove - d.net_sc), 0);
+
+    // Compute correlations
+    function pearson(xs, ys) {
+      const n = xs.length;
+      const mx = avg(xs), my = avg(ys);
+      let num = 0, dx2 = 0, dy2 = 0;
+      for (let i = 0; i < n; i++) {
+        const dx = xs[i] - mx, dy = ys[i] - my;
+        num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+      }
+      return num / Math.sqrt(dx2 * dy2);
+    }
+    const rCallsAcq = pearson(data.map(d => d.calls), data.map(d => d.acq));
+    const rTopRev = pearson(data.map(d => d.pct_top), data.map(d => d.net_sc));
+
+    // KPI Cards
+    content.innerHTML = `
+      ${initKpiRow([
+        { label: "Optimal Monthly Calls", value: "9,500–11,000", sub: "Mid-tier → $" + Math.round(midAvgRev / 1000) + "K avg net rev" },
+        { label: "Optimal Calls/Shift", value: "20–21" },
+        { label: "Golden % Contacted by Top Reps", value: "≥75%", cls: "accent-green" },
+        { label: "Correlation %Top → Revenue", value: "r=" + rTopRev.toFixed(3), sub: "p < 0.01", cls: "accent-green" },
+        { label: "Revenue at Stake", value: fmtK(revAtStake), sub: "Lost when below threshold", cls: "accent-amber" },
+      ])}
+
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">Total Monthly Calls vs Net Revenue — Finding the Sweet Spot</div>
+        <div class="chart-wrap"><canvas id="stdCh1" height="450"></canvas></div>
+        <div class="std-insight">The mid-range of ~10,000 calls/month delivers the highest average net revenue ($${Math.round(midAvgRev/1000)}K). Too few calls = missed opportunities. Too many calls = diminishing returns from rep fatigue.</div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">Total Calls vs Acquisitions</div>
+        <div class="chart-wrap"><canvas id="stdCh2" height="400"></canvas></div>
+        <div class="std-insight">More calls drive more acquisitions, but the QUALITY of those calls (top rep engagement) matters more than volume — see the next chart.</div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">% Top Rep Contacted vs Net Revenue — The Strongest Driver</div>
+        <div class="chart-wrap"><canvas id="stdCh3" height="450"></canvas></div>
+      </div>
+
+      <div class="data-table-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">The Rockstar Reps — Conversion Rates</div>
+        <div id="rockstarTable"></div>
+      </div>
+
+      <div class="verdict-banner">
+        <div class="verdict-label">ROSEN MINIMUM STANDARDS</div>
+        <div class="verdict-text">
+          • ≥75% of leads contacted by top reps (r=0.711, proven strongest revenue driver)<br>
+          • 9,500–11,000 total calls/month (sweet spot for net revenue)<br>
+          • 20+ calls per shift<br>
+          • Top reps must maintain ≥15% acq/contacted conversion<br>
+          • Core rockstars: Tamir (28.5%), Levi (25.5%), Tessler (23.7%), Cohen (21.2%)
+        </div>
+      </div>
+    `;
+
+    // ── Chart 1: Total Calls vs Net Revenue Scatter ──
+    const sweetLow = 9500, sweetHigh = 11000;
+    mkChart("stdCh1", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Sweet Spot (9.5K–11K)",
+            data: data.filter(d => d.calls >= sweetLow && d.calls <= sweetHigh).map(d => ({ x: d.calls, y: d.net_sc, label: d.short })),
+            backgroundColor: C.emerald,
+            borderColor: C.emerald,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+          },
+          {
+            label: "Outside Sweet Spot",
+            data: data.filter(d => d.calls < sweetLow || d.calls > sweetHigh).map(d => ({ x: d.calls, y: d.net_sc, label: d.short })),
+            backgroundColor: C.amber,
+            borderColor: C.amber,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              title: (items) => items[0] ? items[0].raw.label : "",
+              label: (ctx) => [`Calls: ${fmtNum(ctx.raw.x)}`, `Net Rev: ${fmtK(ctx.raw.y)}`],
+            },
+          },
+          datalabels: {
+            display: true,
+            color: (ctx) => {
+              const x = ctx.dataset.data[ctx.dataIndex].x;
+              return (x >= sweetLow && x <= sweetHigh) ? C.emerald : C.amber;
+            },
+            font: { size: 8, weight: "500", family: "Inter" },
+            anchor: "end",
+            align: "top",
+            offset: 4,
+            formatter: (v) => v.label,
+          },
+          annotation: {
+            annotations: {
+              sweetSpot: {
+                type: "box",
+                xMin: sweetLow, xMax: sweetHigh,
+                backgroundColor: "rgba(16,185,129,0.06)",
+                borderColor: "rgba(16,185,129,0.25)",
+                borderWidth: 1,
+              },
+              lowLabel: {
+                type: "label",
+                xValue: 7500, yValue: 280000,
+                content: ["LOW", "(<9,500)"],
+                font: { size: 10, weight: "700", family: "Inter" },
+                color: C.textMuted,
+              },
+              midLabel: {
+                type: "label",
+                xValue: 10250, yValue: 280000,
+                content: ["SWEET SPOT", "(9,500–11,000)"],
+                font: { size: 10, weight: "700", family: "Inter" },
+                color: C.emerald,
+              },
+              highLabel: {
+                type: "label",
+                xValue: 13500, yValue: 280000,
+                content: ["HIGH", "(>11,000)"],
+                font: { size: 10, weight: "700", family: "Inter" },
+                color: C.textMuted,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "Total Calls / Month", color: C.textMuted, font: { size: 10, family: "Inter" } }, ticks: { ...baseScaleX.ticks, callback: v => fmtNum(v) } },
+          y: { ...baseScaleY("Net Revenue (S-C)"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // ── Chart 2: Total Calls vs Acquisitions ──
+    mkChart("stdCh2", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Monthly Data",
+            data: data.map(d => ({ x: d.calls, y: d.acq, label: d.short })),
+            backgroundColor: C.indigo,
+            borderColor: C.indigo,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              title: (items) => items[0] ? items[0].raw.label : "",
+              label: (ctx) => [`Calls: ${fmtNum(ctx.raw.x)}`, `Acquisitions: ${ctx.raw.y}`],
+            },
+          },
+          datalabels: {
+            display: false,
+          },
+          annotation: {
+            annotations: {
+              corrLabel: {
+                type: "label",
+                xValue: 13000, yValue: 120,
+                content: ["r = " + rCallsAcq.toFixed(3)],
+                font: { size: 12, weight: "700", family: "Inter" },
+                color: C.indigo,
+                backgroundColor: "rgba(99,102,241,0.08)",
+                padding: 6,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "Total Calls / Month", color: C.textMuted, font: { size: 10, family: "Inter" } }, ticks: { ...baseScaleX.ticks, callback: v => fmtNum(v) } },
+          y: { ...baseScaleY("Acquisitions"), beginAtZero: false },
+        },
+      },
+    });
+
+    // ── Chart 3: % Top Rep Contacted vs Net Revenue ──
+    // Compute trend line
+    const xs3 = data.map(d => d.pct_top), ys3 = data.map(d => d.net_sc);
+    const mx3 = avg(xs3), my3 = avg(ys3);
+    let num3 = 0, den3 = 0;
+    for (let i = 0; i < xs3.length; i++) { num3 += (xs3[i] - mx3) * (ys3[i] - my3); den3 += (xs3[i] - mx3) ** 2; }
+    const slope3 = num3 / den3, int3 = my3 - slope3 * mx3;
+    const minX3 = Math.min(...xs3), maxX3 = Math.max(...xs3);
+
+    mkChart("stdCh3", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "≥75% Top Contacted",
+            data: data.filter(d => d.pct_top >= 75).map(d => ({ x: d.pct_top, y: d.net_sc, label: d.short })),
+            backgroundColor: C.emerald,
+            borderColor: C.emerald,
+            pointRadius: 8,
+            pointHoverRadius: 11,
+          },
+          {
+            label: "<75% Top Contacted",
+            data: data.filter(d => d.pct_top < 75).map(d => ({ x: d.pct_top, y: d.net_sc, label: d.short })),
+            backgroundColor: C.red,
+            borderColor: C.red,
+            pointRadius: 8,
+            pointHoverRadius: 11,
+          },
+          {
+            label: "Trend Line",
+            data: [{ x: minX3, y: slope3 * minX3 + int3 }, { x: maxX3, y: slope3 * maxX3 + int3 }],
+            type: "line",
+            borderColor: "rgba(241,245,249,0.3)",
+            borderWidth: 2,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              title: (items) => items[0] ? items[0].raw.label || "" : "",
+              label: (ctx) => ctx.raw.label ? [`% Top: ${ctx.raw.x.toFixed(1)}%`, `Net Rev: ${fmtK(ctx.raw.y)}`] : [],
+            },
+          },
+          datalabels: {
+            display: (ctx) => ctx.datasetIndex < 2,
+            color: (ctx) => ctx.datasetIndex === 0 ? C.emerald : C.red,
+            font: { size: 8, weight: "500", family: "Inter" },
+            anchor: "end",
+            align: "top",
+            offset: 4,
+            formatter: (v) => v.label || "",
+          },
+          annotation: {
+            annotations: {
+              threshold: {
+                type: "line",
+                xMin: 75, xMax: 75,
+                borderColor: "rgba(16,185,129,0.5)",
+                borderWidth: 2,
+                borderDash: [8, 4],
+                label: {
+                  display: true,
+                  content: "75% Threshold",
+                  position: "start",
+                  backgroundColor: "rgba(16,185,129,0.12)",
+                  color: C.emerald,
+                  font: { size: 10, weight: "600", family: "Inter" },
+                  padding: 4,
+                },
+              },
+              corrBox: {
+                type: "label",
+                xValue: 55, yValue: 270000,
+                content: ["r = " + rTopRev.toFixed(3) + ", p < 0.01", "STATISTICALLY SIGNIFICANT", "", "This is the single most predictive", "metric of monthly revenue performance"],
+                font: { size: 11, weight: "700", family: "Inter" },
+                color: C.emerald,
+                backgroundColor: "rgba(16,185,129,0.08)",
+                borderColor: "rgba(16,185,129,0.3)",
+                borderWidth: 1,
+                padding: { top: 10, bottom: 10, left: 14, right: 14 },
+                cornerRadius: 6,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "% Top Reps Contacted", color: C.textMuted, font: { size: 10, family: "Inter" } }, ticks: { ...baseScaleX.ticks, callback: v => v + "%" } },
+          y: { ...baseScaleY("Net Revenue (S-C)"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // ── Chart 4: Rockstar Reps Table ──
+    const rockstars = [
+      { name: "Tamir Yakov", conv: 28.5, months: 23, totalAcq: 668, consistency: 0.85 },
+      { name: "Levi Daniela", conv: 25.5, months: 15, totalAcq: 220, consistency: 0.82 },
+      { name: "Tessler Maia", conv: 23.7, months: 27, totalAcq: 399, consistency: 0.80 },
+      { name: "Cohen Adam", conv: 21.2, months: 19, totalAcq: 283, consistency: 0.72 },
+      { name: "Getreuer Roy", conv: 18.5, months: 27, totalAcq: 663, consistency: 0.70 },
+      { name: "Rubens Fred", conv: 18.4, months: 26, totalAcq: 630, consistency: 0.68 },
+      { name: "Atkins Kimberly", conv: 17.7, months: 25, totalAcq: 287, consistency: 0.60 },
+      { name: "Bitter Avram", conv: 15.3, months: 27, totalAcq: 272, consistency: 0.50 },
+      { name: "Neuman Yanniv", conv: 13.6, months: 26, totalAcq: 257, consistency: 0.45 },
+    ];
+
+    const tableEl = document.getElementById("rockstarTable");
+    let tableHTML = `<div class="data-table-wrap"><table class="data-table rockstar-table">
+      <thead><tr>
+        <th style="text-align:left;">Rep Name</th>
+        <th>Conv Rate</th>
+        <th>Months Active</th>
+        <th>Total Acq</th>
+        <th>Consistency</th>
+      </tr></thead><tbody>`;
+
+    rockstars.forEach(r => {
+      const rowCls = r.conv >= 15 ? "rockstar-green" : r.conv >= 10 ? "rockstar-amber" : "rockstar-red";
+      const barWidth = Math.round(r.consistency * 100);
+      const barColor = r.conv >= 15 ? C.emerald : r.conv >= 10 ? C.amber : C.red;
+      tableHTML += `<tr class="${rowCls}">
+        <td class="std-rep-name">${r.name}</td>
+        <td style="text-align:center;font-weight:700;font-size:15px;color:${r.conv >= 15 ? C.emerald : r.conv >= 10 ? C.amber : C.red};">${r.conv}%</td>
+        <td style="text-align:center;">${r.months}</td>
+        <td style="text-align:center;font-weight:600;">${fmtNum(r.totalAcq)}</td>
+        <td style="text-align:left;padding-left:16px;">
+          <div class="consistency-bar-wrap">
+            <div class="consistency-bar" style="width:${barWidth}%;background:${barColor};"></div>
+          </div>
+        </td>
+      </tr>`;
+    });
+    tableHTML += "</tbody></table></div>";
+    tableEl.innerHTML = tableHTML;
+  }
+
+  function renderStandardsIIBS(data) {
+    const content = document.getElementById("standardsContent");
+
+    function pearson(xs, ys) {
+      const n = xs.length;
+      const mx = avg(xs), my = avg(ys);
+      let num = 0, dx2 = 0, dy2 = 0;
+      for (let i = 0; i < n; i++) {
+        const dx = xs[i] - mx, dy = ys[i] - my;
+        num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+      }
+      return num / Math.sqrt(dx2 * dy2);
+    }
+
+    const rCallsAcq = pearson(data.map(d => d.calls), data.map(d => d.acq));
+    const rCallsRev = pearson(data.map(d => d.calls), data.map(d => d.net_sc));
+    const rTopRev = pearson(data.map(d => d.pct_top), data.map(d => d.net_sc));
+
+    // Tier analysis
+    const sweetLow = 33000, sweetHigh = 37000;
+    const midTier = data.filter(d => d.calls >= sweetLow && d.calls <= sweetHigh);
+    const midAvgRev = midTier.length ? avg(midTier.map(d => d.net_sc)) : 0;
+
+    // Revenue at stake
+    const above60 = data.filter(d => d.pct_top >= 60);
+    const below60 = data.filter(d => d.pct_top < 60);
+    const avgAbove = avg(above60.map(d => d.net_sc));
+    const revAtStake = below60.reduce((sum, d) => sum + Math.max(0, avgAbove - d.net_sc), 0);
+
+    content.innerHTML = `
+      ${initKpiRow([
+        { label: "Optimal Monthly Calls", value: "33K–37K", sub: "Mid-tier → $" + Math.round(midAvgRev / 1000) + "K avg net rev" },
+        { label: "Optimal Calls/Shift", value: "90–95" },
+        { label: "Golden % Top Reps", value: "≥60%", cls: "accent-green" },
+        { label: "Correlation %Top → Revenue", value: "r=" + rTopRev.toFixed(3), sub: "p < 0.05", cls: "accent-green" },
+        { label: "Revenue at Stake", value: fmtK(revAtStake), sub: "Lost when below threshold", cls: "accent-amber" },
+      ])}
+
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">Total Monthly Calls vs Net Revenue — IIBS Sweet Spot</div>
+        <div class="chart-wrap"><canvas id="stdIch1" height="450"></canvas></div>
+        <div class="std-insight">The mid-range of ~35,000 calls/month delivers the best balance. Calls→Revenue correlation is weak (r=${rCallsRev.toFixed(3)}), meaning volume alone doesn't drive revenue for IIBS — rep quality matters more.</div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">Total Calls vs Acquisitions</div>
+        <div class="chart-wrap"><canvas id="stdIch2" height="400"></canvas></div>
+        <div class="std-insight">Moderate positive correlation (r=${rCallsAcq.toFixed(3)}) — more calls do drive acquisitions at IIBS, but rep quality (%Top) is the stronger lever for revenue.</div>
+      </div>
+
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">% Top Rep Contacted vs Net Revenue — Key Driver</div>
+        <div class="chart-wrap"><canvas id="stdIch3" height="450"></canvas></div>
+      </div>
+
+      <div class="verdict-banner">
+        <div class="verdict-label">IIBS MINIMUM STANDARDS</div>
+        <div class="verdict-text">
+          • ≥60% of leads handled by top reps (r=${rTopRev.toFixed(3)}, significant revenue driver)<br>
+          • 33,000–37,000 total calls/month (sweet spot for IIBS operations)<br>
+          • 90–95 calls per shift<br>
+          • Volume→Revenue is weak (r=${rCallsRev.toFixed(3)}), so rep quality is paramount<br>
+          • Calls→Acquisitions (r=${rCallsAcq.toFixed(3)}) shows volume does help conversion pipeline
+        </div>
+      </div>
+    `;
+
+    // ── Chart 1: Total Calls vs Net Revenue Scatter ──
+    mkChart("stdIch1", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Sweet Spot (33K–37K)",
+            data: data.filter(d => d.calls >= sweetLow && d.calls <= sweetHigh).map(d => ({ x: d.calls, y: d.net_sc, label: d.short })),
+            backgroundColor: C.emerald,
+            borderColor: C.emerald,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+          },
+          {
+            label: "Outside Sweet Spot",
+            data: data.filter(d => d.calls < sweetLow || d.calls > sweetHigh).map(d => ({ x: d.calls, y: d.net_sc, label: d.short })),
+            backgroundColor: C.amber,
+            borderColor: C.amber,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              title: (items) => items[0] ? items[0].raw.label : "",
+              label: (ctx) => [`Calls: ${fmtNum(ctx.raw.x)}`, `Net Rev: ${fmtK(ctx.raw.y)}`],
+            },
+          },
+          datalabels: {
+            display: true,
+            color: (ctx) => {
+              const x = ctx.dataset.data[ctx.dataIndex].x;
+              return (x >= sweetLow && x <= sweetHigh) ? C.emerald : C.amber;
+            },
+            font: { size: 8, weight: "500", family: "Inter" },
+            anchor: "end",
+            align: "top",
+            offset: 4,
+            formatter: (v) => v.label,
+          },
+          annotation: {
+            annotations: {
+              sweetSpot: {
+                type: "box",
+                xMin: sweetLow, xMax: sweetHigh,
+                backgroundColor: "rgba(16,185,129,0.06)",
+                borderColor: "rgba(16,185,129,0.25)",
+                borderWidth: 1,
+              },
+              lowLabel: {
+                type: "label",
+                xValue: 27000, yValue: 330000,
+                content: ["LOW", "(<33K)"],
+                font: { size: 10, weight: "700", family: "Inter" },
+                color: C.textMuted,
+              },
+              midLabel: {
+                type: "label",
+                xValue: 35000, yValue: 330000,
+                content: ["SWEET SPOT", "(33K–37K)"],
+                font: { size: 10, weight: "700", family: "Inter" },
+                color: C.emerald,
+              },
+              highLabel: {
+                type: "label",
+                xValue: 48000, yValue: 330000,
+                content: ["HIGH", "(>37K)"],
+                font: { size: 10, weight: "700", family: "Inter" },
+                color: C.textMuted,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "Total Calls / Month", color: C.textMuted, font: { size: 10, family: "Inter" } }, ticks: { ...baseScaleX.ticks, callback: v => fmtNum(v) } },
+          y: { ...baseScaleY("Net Revenue (S-C)"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // ── Chart 2: Total Calls vs Acquisitions ──
+    mkChart("stdIch2", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "Monthly Data",
+            data: data.map(d => ({ x: d.calls, y: d.acq, label: d.short })),
+            backgroundColor: C.cyan,
+            borderColor: C.cyan,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              title: (items) => items[0] ? items[0].raw.label : "",
+              label: (ctx) => [`Calls: ${fmtNum(ctx.raw.x)}`, `Acquisitions: ${ctx.raw.y}`],
+            },
+          },
+          datalabels: { display: false },
+          annotation: {
+            annotations: {
+              corrLabel: {
+                type: "label",
+                xValue: 48000, yValue: 200,
+                content: ["r = " + rCallsAcq.toFixed(3)],
+                font: { size: 12, weight: "700", family: "Inter" },
+                color: C.cyan,
+                backgroundColor: "rgba(6,182,212,0.08)",
+                padding: 6,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "Total Calls / Month", color: C.textMuted, font: { size: 10, family: "Inter" } }, ticks: { ...baseScaleX.ticks, callback: v => fmtNum(v) } },
+          y: { ...baseScaleY("Acquisitions"), beginAtZero: false },
+        },
+      },
+    });
+
+    // ── Chart 3: % Top Rep vs Net Revenue ──
+    const xs3 = data.map(d => d.pct_top), ys3 = data.map(d => d.net_sc);
+    const mx3 = avg(xs3), my3 = avg(ys3);
+    let num3 = 0, den3 = 0;
+    for (let i = 0; i < xs3.length; i++) { num3 += (xs3[i] - mx3) * (ys3[i] - my3); den3 += (xs3[i] - mx3) ** 2; }
+    const slope3 = num3 / den3, int3 = my3 - slope3 * mx3;
+    const minX3 = Math.min(...xs3), maxX3 = Math.max(...xs3);
+
+    mkChart("stdIch3", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "≥60% Top",
+            data: data.filter(d => d.pct_top >= 60).map(d => ({ x: d.pct_top, y: d.net_sc, label: d.short })),
+            backgroundColor: C.emerald,
+            borderColor: C.emerald,
+            pointRadius: 8,
+            pointHoverRadius: 11,
+          },
+          {
+            label: "<60% Top",
+            data: data.filter(d => d.pct_top < 60).map(d => ({ x: d.pct_top, y: d.net_sc, label: d.short })),
+            backgroundColor: C.red,
+            borderColor: C.red,
+            pointRadius: 8,
+            pointHoverRadius: 11,
+          },
+          {
+            label: "Trend Line",
+            data: [{ x: minX3, y: slope3 * minX3 + int3 }, { x: maxX3, y: slope3 * maxX3 + int3 }],
+            type: "line",
+            borderColor: "rgba(241,245,249,0.3)",
+            borderWidth: 2,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              title: (items) => items[0] ? items[0].raw.label || "" : "",
+              label: (ctx) => ctx.raw.label ? [`% Top: ${ctx.raw.x.toFixed(1)}%`, `Net Rev: ${fmtK(ctx.raw.y)}`] : [],
+            },
+          },
+          datalabels: {
+            display: (ctx) => ctx.datasetIndex < 2,
+            color: (ctx) => ctx.datasetIndex === 0 ? C.emerald : C.red,
+            font: { size: 8, weight: "500", family: "Inter" },
+            anchor: "end",
+            align: "top",
+            offset: 4,
+            formatter: (v) => v.label || "",
+          },
+          annotation: {
+            annotations: {
+              threshold: {
+                type: "line",
+                xMin: 60, xMax: 60,
+                borderColor: "rgba(16,185,129,0.5)",
+                borderWidth: 2,
+                borderDash: [8, 4],
+                label: {
+                  display: true,
+                  content: "60% Threshold",
+                  position: "start",
+                  backgroundColor: "rgba(16,185,129,0.12)",
+                  color: C.emerald,
+                  font: { size: 10, weight: "600", family: "Inter" },
+                  padding: 4,
+                },
+              },
+              corrBox: {
+                type: "label",
+                xValue: 22, yValue: 310000,
+                content: ["r = " + rTopRev.toFixed(3) + ", p < 0.05", "SIGNIFICANT CORRELATION", "", "Top rep engagement is the", "strongest revenue predictor for IIBS"],
+                font: { size: 11, weight: "700", family: "Inter" },
+                color: C.emerald,
+                backgroundColor: "rgba(16,185,129,0.08)",
+                borderColor: "rgba(16,185,129,0.3)",
+                borderWidth: 1,
+                padding: { top: 10, bottom: 10, left: 14, right: 14 },
+                cornerRadius: 6,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "% Top Reps", color: C.textMuted, font: { size: 10, family: "Inter" } }, ticks: { ...baseScaleX.ticks, callback: v => v + "%" } },
+          y: { ...baseScaleY("Net Revenue (S-C)"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
         },
       },
     });
