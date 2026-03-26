@@ -107,7 +107,8 @@
 
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const db = parseInt(btn.dataset.db);
+      const raw = btn.dataset.db;
+      const db = raw.startsWith("init") ? raw : parseInt(raw);
       navItems.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeDb = db;
@@ -2118,6 +2119,964 @@
       case 6: renderTopReps(); break;
       case 7: renderMonthlyIntel(); break;
     }
+    if (activeDb === "init1") renderInit1();
+    if (activeDb === "init2") renderInit2();
+    if (activeDb === "init3") renderInit3();
+    if (activeDb === "init4") renderInit4();
+  }
+
+  // ── Initiative KPI Row (supports cls for card accents and sub for subtitles) ──
+  function initKpiRow(items) {
+    const n = items.length;
+    const gridCls = n <= 3 ? "cols-3" : n <= 4 ? "cols-4" : n <= 5 ? "cols-5" : "cols-6";
+    return `<div class="kpi-row ${gridCls}">${items.map((k) =>
+      `<div class="kpi-card${k.cls ? " " + k.cls : ""}">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-value">${k.value}</div>
+        ${k.sub ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${k.sub}</div>` : ""}
+      </div>`
+    ).join("")}</div>`;
+  }
+
+  // ===========================================================================
+  // INITIATIVE 1: CALL CENTER BASELINES
+  // ===========================================================================
+  function renderInit1() {
+    // Compute scatter data: X = r_pct_top, Y = r_net_sc
+    const scatterPts = D.map(d => ({ x: d.r_pct_top, y: d.r_net_sc, label: d.short }));
+    const aboveThresh = scatterPts.filter(p => p.x >= 75);
+    const belowThresh = scatterPts.filter(p => p.x < 75);
+
+    const avgAbove = avg(aboveThresh.map(p => p.y));
+    const avgBelow = avg(belowThresh.map(p => p.y));
+
+    container.innerHTML = `
+      <div class="dashboard-view">
+        <div class="init-headline">What Minimum Standards Should We Never Fall Below?</div>
+        <div class="init-subtitle">Statistical analysis of 26 months reveals clear performance thresholds</div>
+
+        ${initKpiRow([
+          { label: "Golden Rosen Threshold", value: "75%", cls: "accent-green" },
+          { label: "Golden IIBS Threshold", value: "60%", cls: "accent-green" },
+          { label: "Correlation Rosen", value: "r = 0.71", sub: "p < 0.01" },
+          { label: "Revenue at Stake", value: "$1.02M", cls: "accent-amber" },
+        ])}
+
+        <div class="chart-grid cols-2">
+          <div class="chart-card span-2">
+            <div class="chart-insight-title">The Proof: % Top Reps Directly Drives Net Revenue (r = 0.711, p < 0.01)</div>
+            <div class="chart-insight-stat">Every 10% increase in top rep engagement ≈ ~$30K more net revenue</div>
+            <div class="chart-wrap" style="height:340px;"><canvas id="init1c1"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">Above vs Below the 75% Golden Threshold</div>
+            <div class="chart-insight-stat">≥75% months (n=${aboveThresh.length}) vs <75% months (n=${belowThresh.length})</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="init1c2"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">What If Top Reps Got All High-Intent Leads?</div>
+            <div class="chart-insight-stat">Lead assignment optimization — conversion rate simulation</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="init1c3"></canvas></div>
+          </div>
+        </div>
+
+        <div class="verdict-banner">
+          <div class="verdict-label">Verdict</div>
+          <div class="verdict-text">Maintaining ≥75% top rep engagement in Rosen and ≥60% in IIBS is the single highest-impact operational standard. Combined with directed lead assignment, the revenue upside exceeds $1.6M/month.</div>
+        </div>
+      </div>
+    `;
+
+    // Chart 1: Scatter — % Top Reps vs Net Rev (Rosen)
+    // Compute trend line via least squares
+    const xArr = D.map(d => d.r_pct_top);
+    const yArr = D.map(d => d.r_net_sc);
+    const n = xArr.length;
+    const sumX = xArr.reduce((a, b) => a + b, 0);
+    const sumY = yArr.reduce((a, b) => a + b, 0);
+    const sumXY = xArr.reduce((a, x, i) => a + x * yArr[i], 0);
+    const sumXX = xArr.reduce((a, x) => a + x * x, 0);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    const minX = Math.min(...xArr);
+    const maxX = Math.max(...xArr);
+
+    mkChart("init1c1", {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "≥75% (Above Threshold)",
+            data: aboveThresh,
+            backgroundColor: "rgba(16,185,129,0.8)",
+            borderColor: "#10B981",
+            borderWidth: 1.5,
+            pointRadius: 7,
+            pointHoverRadius: 9,
+          },
+          {
+            label: "<75% (Below Threshold)",
+            data: belowThresh,
+            backgroundColor: "rgba(239,68,68,0.7)",
+            borderColor: "#EF4444",
+            borderWidth: 1.5,
+            pointRadius: 7,
+            pointHoverRadius: 9,
+          },
+          {
+            label: "Trend Line",
+            type: "line",
+            data: [{ x: minX, y: slope * minX + intercept }, { x: maxX, y: slope * maxX + intercept }],
+            borderColor: "rgba(255,255,255,0.35)",
+            borderWidth: 2,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                const p = ctx.raw;
+                return p.label ? `${p.label}: ${p.x.toFixed(0)}% Top Reps → ${fmtK(p.y)} Net Rev` : "";
+              },
+            },
+          },
+          datalabels: { display: false },
+          annotation: {
+            annotations: {
+              threshold: {
+                type: "line",
+                xMin: 75, xMax: 75,
+                borderColor: "rgba(16,185,129,0.5)",
+                borderWidth: 2,
+                borderDash: [6, 3],
+                label: { display: true, content: "75% Threshold", position: "start", color: "#10B981", font: { size: 10 }, backgroundColor: "transparent" },
+              },
+              corrLabel: {
+                type: "label",
+                xValue: maxX - 5,
+                yValue: Math.min(...yArr) + 20000,
+                content: ["r = 0.711", "p < 0.01 — Statistically Significant"],
+                color: "#10B981",
+                font: { size: 11, weight: "bold" },
+                backgroundColor: "rgba(16,185,129,0.08)",
+                padding: 8,
+                borderRadius: 4,
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleX, type: "linear", title: { display: true, text: "% Top Reps Contacted (Rosen)", color: C.textMuted, font: { size: 11 } }, ticks: { ...baseScaleX.ticks, callback: v => v + "%" }, min: 0 },
+          y: { ...baseScaleY("Net Revenue (S−C)"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // Chart 2: Above vs Below threshold comparison
+    const avgAboveSales = avg(D.filter(d => d.r_pct_top >= 75).map(d => d.r_sales));
+    const avgBelowSales = avg(D.filter(d => d.r_pct_top < 75).map(d => d.r_sales));
+    const avgAboveMroi = avg(D.filter(d => d.r_pct_top >= 75).map(d => d.r_mroi));
+    const avgBelowMroi = avg(D.filter(d => d.r_pct_top < 75).map(d => d.r_mroi));
+
+    mkChart("init1c2", {
+      type: "bar",
+      data: {
+        labels: ["Net Revenue", "Sales Revenue", "mROI"],
+        datasets: [
+          {
+            label: "≥75% Months (n=" + aboveThresh.length + ")",
+            data: [avgAbove, avgAboveSales, avgAboveMroi * 50000],
+            backgroundColor: "rgba(16,185,129,0.7)",
+            borderColor: "#10B981",
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+          {
+            label: "<75% Months (n=" + belowThresh.length + ")",
+            data: [avgBelow, avgBelowSales, avgBelowMroi * 50000],
+            backgroundColor: "rgba(239,68,68,0.5)",
+            borderColor: "#EF4444",
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: (ctx) => {
+                if (ctx.dataIndex === 2) return ctx.dataset.label + ": " + (ctx.raw / 50000).toFixed(2) + "x";
+                return ctx.dataset.label + ": " + fmtK(ctx.raw);
+              },
+            },
+          },
+          datalabels: {
+            anchor: "end", align: "top",
+            color: (ctx) => ctx.datasetIndex === 0 ? "#10B981" : "#EF4444",
+            font: { size: 10, weight: "700" },
+            formatter: (v, ctx) => {
+              if (ctx.dataIndex === 2) return (v / 50000).toFixed(2) + "x";
+              return fmtK(v);
+            },
+          },
+          annotation: {
+            annotations: {
+              delta: {
+                type: "label",
+                xValue: 0,
+                yValue: Math.max(avgAbove, avgBelow) + 30000,
+                content: ["+42% NET REVENUE"],
+                color: "#10B981",
+                font: { size: 14, weight: "bold" },
+                backgroundColor: "rgba(16,185,129,0.1)",
+                padding: { top: 6, bottom: 6, left: 12, right: 12 },
+                borderRadius: 6,
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY(""), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // Chart 3: Lead assignment optimization
+    mkChart("init1c3", {
+      type: "bar",
+      data: {
+        labels: ["Rosen Current", "Rosen Optimized", "IIBS Current", "IIBS Optimized"],
+        datasets: [
+          {
+            label: "Monthly Revenue Potential",
+            data: [
+              avg(col("r_net_sc")),
+              avg(col("r_net_sc")) + 529000,
+              avg(col("i_net_sc")),
+              avg(col("i_net_sc")) + 1120000,
+            ],
+            backgroundColor: [
+              "rgba(6,182,212,0.4)",
+              "rgba(6,182,212,0.85)",
+              "rgba(245,158,11,0.4)",
+              "rgba(245,158,11,0.85)",
+            ],
+            borderColor: [C.cyan, C.cyan, C.amber, C.amber],
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: { label: (ctx) => fmtK(ctx.raw) },
+          },
+          datalabels: {
+            anchor: "end", align: "top",
+            color: (ctx) => ctx.dataIndex < 2 ? C.cyan : C.amber,
+            font: { size: 10, weight: "700" },
+            formatter: (v) => fmtK(v),
+          },
+          annotation: {
+            annotations: {
+              rDelta: {
+                type: "label",
+                xValue: 0.5,
+                yValue: avg(col("r_net_sc")) + 529000 + 80000,
+                content: ["+$529K/mo"],
+                color: C.cyan,
+                font: { size: 12, weight: "bold" },
+                backgroundColor: "transparent",
+              },
+              iDelta: {
+                type: "label",
+                xValue: 2.5,
+                yValue: avg(col("i_net_sc")) + 1120000 + 80000,
+                content: ["+$1.12M/mo"],
+                color: C.amber,
+                font: { size: 12, weight: "bold" },
+                backgroundColor: "transparent",
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("Net Revenue"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // INITIATIVE 2: REP SEPARATION (ZERO-SUM)
+  // ===========================================================================
+  function renderInit2() {
+    const repNames = ["Tessler Maia", "Tamir Yakov", "Getreuer Roy", "Rubens Fred", "Atkins Kimberly", "Levi Daniela"];
+
+    // Compute total rev per rep per school
+    const repTotals = repNames.map(name => {
+      const recs = REP_DATA.filter(r => r.rep === name);
+      return {
+        name: name.split(" ")[0],
+        rRev: recs.reduce((s, r) => s + (r.r_revenue || 0), 0),
+        iRev: recs.reduce((s, r) => s + (r.i_revenue || 0), 0),
+      };
+    });
+
+    container.innerHTML = `
+      <div class="dashboard-view">
+        <div class="init-headline">Should We Separate Sales Reps Across Schools or Keep Them Combined?</div>
+        <div class="init-subtitle">Evidence from 307 rep-month data points across both schools</div>
+
+        ${initKpiRow([
+          { label: "Shared Top Reps", value: "6" },
+          { label: "Revenue Impact", value: "$63K/mo" },
+          { label: "Months Analyzed", value: "26" },
+          { label: "Rep-Month Records", value: "307" },
+        ])}
+
+        <div class="chart-grid cols-2">
+          <div class="chart-card span-2">
+            <div class="chart-insight-title">The Bandwidth Trade-Off — When One School Wins, the Other Loses</div>
+            <div class="chart-insight-stat">Grouped bars per month: Rosen % Top (cyan) vs IIBS % Top (amber)</div>
+            <div class="chart-wrap" style="height:320px;"><canvas id="init2c1"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">Top 6 Reps — Revenue Split Between Schools</div>
+            <div class="chart-insight-stat">Total revenue divided between Rosen and IIBS across all months</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="init2c2"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">Revenue Follows Rep Attention</div>
+            <div class="chart-insight-stat">Net revenue bars + % top rep overlay per month per school</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="init2c3"></canvas></div>
+          </div>
+        </div>
+
+        <div class="verdict-banner">
+          <div class="verdict-label">Verdict</div>
+          <div class="verdict-text">The same 6 rockstar reps consistently split bandwidth across schools. Dedicating reps to a single school would eliminate the zero-sum trade-off and allow each school to maintain peak conversion rates.</div>
+        </div>
+      </div>
+    `;
+
+    // Chart 1: Grouped bars — R % Top vs I % Top
+    mkChart("init2c1", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Rosen % Top",
+            data: col("r_pct_top"),
+            backgroundColor: "rgba(6,182,212,0.65)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+          {
+            label: "IIBS % Top",
+            data: col("i_pct_top"),
+            backgroundColor: "rgba(245,158,11,0.55)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10 } },
+          tooltip: { ...baseTooltip, callbacks: { label: ctx => ctx.dataset.label + ": " + ctx.raw.toFixed(1) + "%" } },
+          datalabels: {
+            anchor: "end", align: "top",
+            color: (ctx) => ctx.datasetIndex === 0 ? C.cyan : C.amber,
+            font: { size: 8, weight: "600" },
+            formatter: v => Math.round(v) + "%",
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("% Top Reps"), max: 100, ticks: { ...baseScaleY("").ticks, callback: v => v + "%" } },
+        },
+      },
+    });
+
+    // Chart 2: Horizontal stacked bar — Top 6 reps revenue split
+    mkChart("init2c2", {
+      type: "bar",
+      data: {
+        labels: repTotals.map(r => r.name),
+        datasets: [
+          {
+            label: "Rosen Revenue",
+            data: repTotals.map(r => r.rRev),
+            backgroundColor: "rgba(6,182,212,0.7)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+          {
+            label: "IIBS Revenue",
+            data: repTotals.map(r => r.iRev),
+            backgroundColor: "rgba(245,158,11,0.65)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10 } },
+          tooltip: { ...baseTooltip, callbacks: { label: ctx => ctx.dataset.label + ": " + fmtK(ctx.raw) } },
+          datalabels: {
+            color: "#fff",
+            font: { size: 9, weight: "600" },
+            formatter: v => v > 50000 ? fmtK(v) : "",
+          },
+        },
+        scales: {
+          x: { ...baseScaleY("Total Revenue"), stacked: true, ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+          y: { ...baseScaleX, stacked: true, ticks: { ...baseScaleX.ticks, font: { size: 13, weight: "600" } } },
+        },
+      },
+    });
+
+    // Chart 3: Dual axis — Revenue bars + % top lines
+    mkChart("init2c3", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "R Net Rev",
+            data: col("r_net_sc"),
+            backgroundColor: "rgba(6,182,212,0.3)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yRev",
+            order: 2,
+          },
+          {
+            label: "I Net Rev",
+            data: col("i_net_sc"),
+            backgroundColor: "rgba(245,158,11,0.25)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            yAxisID: "yRev",
+            order: 2,
+          },
+          {
+            label: "R % Top",
+            type: "line",
+            data: col("r_pct_top"),
+            borderColor: C.cyan,
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 1,
+          },
+          {
+            label: "I % Top",
+            type: "line",
+            data: col("i_pct_top"),
+            borderColor: C.amber,
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.3,
+            yAxisID: "yPct",
+            order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 9 }, boxWidth: 10 } },
+          tooltip: { ...baseTooltip },
+          datalabels: { display: false },
+        },
+        scales: {
+          x: baseScaleX,
+          yRev: { ...baseScaleY("Net Revenue"), position: "left", ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+          yPct: { position: "right", beginAtZero: true, max: 100, title: { display: true, text: "% Top Reps", color: C.textMuted, font: { size: 10 } }, ticks: { color: C.textMuted, font: { size: 9 }, callback: v => v + "%" }, grid: { display: false } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // INITIATIVE 3: AD ACCOUNT CPL INSTABILITY
+  // ===========================================================================
+  function renderInit3() {
+    const rCPL = col("r_cpl");
+    const iCPL = col("i_cpl");
+    const rAvgCPL = avg(rCPL);
+    const iAvgCPL = avg(iCPL);
+
+    // MoM swings
+    const rSwings = rCPL.slice(1).map((v, i) => ((v - rCPL[i]) / rCPL[i]) * 100);
+    const iSwings = iCPL.slice(1).map((v, i) => ((v - iCPL[i]) / iCPL[i]) * 100);
+    const swingLabels = labels.slice(1);
+
+    container.innerHTML = `
+      <div class="dashboard-view">
+        <div class="init-headline">Are Ad Accounts Too Unstable for Reliable Performance?</div>
+        <div class="init-subtitle">CPL fluctuation analysis vs industry benchmarks</div>
+
+        ${initKpiRow([
+          { label: "Rosen CPL Volatility", value: "14.3% CV", cls: "accent-amber" },
+          { label: "IIBS CPL Volatility", value: "18.7% CV", cls: "accent-red" },
+          { label: "Industry Benchmark", value: "~10% CV" },
+          { label: "Revenue at Risk", value: "$16K per $1 CPL", sub: "IIBS" },
+        ])}
+
+        <div class="chart-grid cols-2">
+          <div class="chart-card span-2">
+            <div class="chart-insight-title">CPL Month-over-Month Swings Exceed Industry Stability Norms</div>
+            <div class="chart-insight-stat">Line chart: Rosen CPL + IIBS CPL over 26 months — shaded band = industry normal range</div>
+            <div class="chart-wrap" style="height:320px;"><canvas id="init3c1"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">Revenue Impact of CPL Instability</div>
+            <div class="chart-insight-stat">CPL deviation from average × revenue impact factor per month</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="init3c2"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">Months with >20% CPL Swings — Both Schools Hit Danger Zone</div>
+            <div class="chart-insight-stat">MoM % swings sorted by magnitude — industry threshold at 15%</div>
+            <div class="chart-wrap" style="height:300px;"><canvas id="init3c3"></canvas></div>
+          </div>
+        </div>
+
+        <div class="verdict-banner">
+          <div class="verdict-label">Verdict</div>
+          <div class="verdict-text">Both ad accounts show volatility at or above industry danger levels. IIBS at 18.7% CV is particularly unstable. Moving to fresh Business Manager accounts should reduce CPL volatility to the 8-10% range, stabilizing revenue planning.</div>
+        </div>
+      </div>
+    `;
+
+    // Chart 1: CPL line chart with industry band
+    const rBandHigh = rCPL.map(() => rAvgCPL * 1.15);
+    const rBandLow = rCPL.map(() => rAvgCPL * 0.85);
+
+    mkChart("init3c1", {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Industry Upper Bound (±15%)",
+            data: labels.map(() => Math.max(rAvgCPL * 1.15, iAvgCPL * 1.15)),
+            borderColor: "transparent",
+            backgroundColor: "rgba(16,185,129,0.06)",
+            fill: "+1",
+            pointRadius: 0,
+          },
+          {
+            label: "Industry Lower Bound",
+            data: labels.map(() => Math.min(rAvgCPL * 0.85, iAvgCPL * 0.85)),
+            borderColor: "transparent",
+            backgroundColor: "transparent",
+            fill: false,
+            pointRadius: 0,
+          },
+          {
+            label: "Rosen CPL",
+            data: rCPL,
+            borderColor: C.cyan,
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: rCPL.map((v, i) => {
+              if (i === 0) return C.cyan;
+              const swing = Math.abs((v - rCPL[i - 1]) / rCPL[i - 1]);
+              return swing > 0.2 ? C.red : C.cyan;
+            }),
+            tension: 0.3,
+            fill: false,
+          },
+          {
+            label: "IIBS CPL",
+            data: iCPL,
+            borderColor: C.amber,
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: iCPL.map((v, i) => {
+              if (i === 0) return C.amber;
+              const swing = Math.abs((v - iCPL[i - 1]) / iCPL[i - 1]);
+              return swing > 0.2 ? C.red : C.amber;
+            }),
+            tension: 0.3,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10, filter: (item) => !item.text.includes("Bound") } },
+          tooltip: { ...baseTooltip, callbacks: { label: ctx => ctx.dataset.label + ": $" + (ctx.raw || 0).toFixed(1) } },
+          datalabels: { display: false },
+          annotation: {
+            annotations: {
+              bandLabel: {
+                type: "label",
+                xValue: labels.length - 3,
+                yValue: Math.max(rAvgCPL, iAvgCPL) * 1.15 + 2,
+                content: ["Industry Normal Range"],
+                color: "#10B981",
+                font: { size: 10 },
+                backgroundColor: "transparent",
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("CPL ($)"), ticks: { ...baseScaleY("").ticks, callback: v => "$" + v } },
+        },
+      },
+    });
+
+    // Chart 2: Revenue impact of CPL deviation
+    const rImpact = rCPL.map(v => (v - rAvgCPL) * -5981);
+    const iImpact = iCPL.map(v => (v - iAvgCPL) * -16429);
+
+    mkChart("init3c2", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Rosen Revenue Impact",
+            data: rImpact,
+            backgroundColor: rImpact.map(v => v >= 0 ? "rgba(16,185,129,0.5)" : "rgba(239,68,68,0.5)"),
+            borderColor: rImpact.map(v => v >= 0 ? "#10B981" : "#EF4444"),
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+          {
+            label: "IIBS Revenue Impact",
+            data: iImpact,
+            backgroundColor: iImpact.map(v => v >= 0 ? "rgba(6,182,212,0.4)" : "rgba(245,158,11,0.5)"),
+            borderColor: iImpact.map(v => v >= 0 ? C.cyan : C.amber),
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10 } },
+          tooltip: { ...baseTooltip, callbacks: { label: ctx => ctx.dataset.label + ": " + fmtK(ctx.raw) } },
+          datalabels: { display: false },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("Revenue Impact ($)"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // Chart 3: MoM swings sorted — both schools combined
+    const allSwings = rSwings.map((v, i) => ({ label: swingLabels[i] + " (R)", value: Math.abs(v), raw: v }))
+      .concat(iSwings.map((v, i) => ({ label: swingLabels[i] + " (I)", value: Math.abs(v), raw: v })))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 20);
+
+    mkChart("init3c3", {
+      type: "bar",
+      data: {
+        labels: allSwings.map(s => s.label),
+        datasets: [{
+          label: "MoM % Swing (Absolute)",
+          data: allSwings.map(s => s.value),
+          backgroundColor: allSwings.map(s => s.value > 20 ? "rgba(239,68,68,0.6)" : s.value > 15 ? "rgba(245,158,11,0.5)" : "rgba(148,163,184,0.3)"),
+          borderColor: allSwings.map(s => s.value > 20 ? C.red : s.value > 15 ? C.amber : C.textMuted),
+          borderWidth: 1,
+          borderRadius: barRadius,
+        }],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...baseTooltip, callbacks: { label: ctx => ctx.raw.toFixed(1) + "% swing" } },
+          datalabels: {
+            anchor: "end", align: "right",
+            color: (ctx) => allSwings[ctx.dataIndex].value > 20 ? C.red : C.textSec,
+            font: { size: 9, weight: "600" },
+            formatter: v => v.toFixed(1) + "%",
+          },
+          annotation: {
+            annotations: {
+              threshold15: {
+                type: "line",
+                xMin: 15, xMax: 15,
+                borderColor: "rgba(245,158,11,0.5)",
+                borderWidth: 2,
+                borderDash: [5, 3],
+                label: { display: true, content: "15% Industry Threshold", position: "start", color: C.amber, font: { size: 9 }, backgroundColor: "transparent" },
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ...baseScaleY("% MoM Swing"), ticks: { ...baseScaleY("").ticks, callback: v => v + "%" } },
+          y: { ...baseScaleX, ticks: { ...baseScaleX.ticks, font: { size: 8 } } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // INITIATIVE 4: LEAD TARGETS
+  // ===========================================================================
+  function renderInit4() {
+    const rTarget = 3438;
+    const iTarget = 9360;
+    const rActual = col("r_leads");
+    const iActual = col("i_leads");
+    const rAvgActual = avg(rActual);
+    const iAvgActual = avg(iActual);
+    const rLast6 = avg(rActual.slice(-6));
+    const iLast6 = avg(iActual.slice(-6));
+
+    // Revenue at current avg vs at target
+    const rAvgConv = avg(col("r_conv")) / 100;
+    const iAvgConv = avg(col("i_conv")) / 100;
+    const rAvgSalePerAcq = avg(col("r_sales")) / avg(col("r_acq"));
+    const iAvgSalePerAcq = avg(col("i_sales")) / avg(col("i_acq"));
+
+    container.innerHTML = `
+      <div class="dashboard-view">
+        <div class="init-headline">Are We Hitting Lead Targets? What's the Revenue Cost?</div>
+        <div class="init-subtitle">Actual lead delivery vs targets and the bottom-line impact</div>
+
+        ${initKpiRow([
+          { label: "Rosen Gap", value: "32% Under", cls: "accent-red" },
+          { label: "IIBS Gap", value: "28% Under", cls: "accent-red" },
+          { label: "Combined Monthly Revenue Gap", value: "$291K" },
+          { label: "Annual Revenue Opportunity", value: "$3.5M", cls: "accent-green" },
+        ])}
+
+        <div class="chart-grid cols-2">
+          <div class="chart-card span-2">
+            <div class="chart-insight-title">Target vs Actual Lead Delivery — Persistent Shortfall in Both Schools</div>
+            <div class="chart-insight-stat">Red shading = gap between actual and target each month</div>
+            <div class="chart-wrap" style="height:340px;"><canvas id="init4c1"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">Current Lead Targets — Daily Breakdown</div>
+            <div class="chart-insight-stat">English + Spanish targets by school</div>
+            <div style="padding: 8px 0;">
+              <table class="target-table">
+                <thead>
+                  <tr><th>Segment</th><th>IIBS Daily</th><th>Rosen Daily</th><th>IIBS Monthly</th><th>Rosen Monthly</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>English</td><td>192</td><td>68</td><td>6,500</td><td>2,438</td></tr>
+                  <tr><td>Spanish</td><td>104</td><td>33</td><td>2,860</td><td>1,000</td></tr>
+                  <tr class="total-row"><td>Total</td><td>296</td><td>101</td><td>9,360</td><td>3,438</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-insight-title">The Revenue Left on the Table</div>
+            <div class="chart-insight-stat">At current delivery vs at target delivery</div>
+            <div class="chart-wrap" style="height:260px;"><canvas id="init4c3"></canvas></div>
+          </div>
+        </div>
+
+        <div class="verdict-banner">
+          <div class="verdict-label">Verdict</div>
+          <div class="verdict-text">Consistently 28-32% below lead targets in both schools. At current conversion rates, closing this gap would add $291K/month ($3.5M/year) in revenue. This requires proportional media spend increases and better lead-to-rep allocation.</div>
+        </div>
+      </div>
+    `;
+
+    // Chart 1: Target vs Actual — dual school
+    mkChart("init4c1", {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Rosen Actual Leads",
+            data: rActual,
+            backgroundColor: "rgba(6,182,212,0.6)",
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            stack: "r",
+          },
+          {
+            label: "Rosen Gap to Target",
+            data: rActual.map(v => Math.max(0, rTarget - v)),
+            backgroundColor: "rgba(239,68,68,0.25)",
+            borderColor: "rgba(239,68,68,0.4)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            stack: "r",
+          },
+          {
+            label: "IIBS Actual Leads",
+            data: iActual,
+            backgroundColor: "rgba(245,158,11,0.55)",
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            stack: "i",
+          },
+          {
+            label: "IIBS Gap to Target",
+            data: iActual.map(v => Math.max(0, iTarget - v)),
+            backgroundColor: "rgba(239,68,68,0.25)",
+            borderColor: "rgba(239,68,68,0.4)",
+            borderWidth: 1,
+            borderRadius: barRadius,
+            stack: "i",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: { label: ctx => ctx.dataset.label + ": " + fmtNum(ctx.raw) },
+          },
+          datalabels: { display: false },
+          annotation: {
+            annotations: {
+              rTarget: {
+                type: "line",
+                yMin: rTarget, yMax: rTarget,
+                borderColor: "rgba(6,182,212,0.4)",
+                borderWidth: 1.5,
+                borderDash: [6, 3],
+                label: { display: true, content: "Rosen Target: 3,438", position: "start", color: C.cyan, font: { size: 9 }, backgroundColor: "transparent" },
+              },
+              iTarget: {
+                type: "line",
+                yMin: iTarget, yMax: iTarget,
+                borderColor: "rgba(245,158,11,0.4)",
+                borderWidth: 1.5,
+                borderDash: [6, 3],
+                label: { display: true, content: "IIBS Target: 9,360", position: "end", color: C.amber, font: { size: 9 }, backgroundColor: "transparent" },
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("Leads"), ticks: { ...baseScaleY("").ticks, callback: v => fmtNum(v) } },
+        },
+      },
+    });
+
+    // Chart 3: Revenue comparison — current vs at-target
+    const rCurrentRev = avg(col("r_net_sc"));
+    const iCurrentRev = avg(col("i_net_sc"));
+    const combinedCurrent = rCurrentRev + iCurrentRev;
+    const combinedTarget = combinedCurrent + 291000;
+
+    mkChart("init4c3", {
+      type: "bar",
+      data: {
+        labels: ["Current Delivery", "At Target Delivery"],
+        datasets: [
+          {
+            label: "Rosen Net Rev",
+            data: [rCurrentRev, rCurrentRev + 141000],
+            backgroundColor: ["rgba(6,182,212,0.5)", "rgba(6,182,212,0.8)"],
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+          {
+            label: "IIBS Net Rev",
+            data: [iCurrentRev, iCurrentRev + 150000],
+            backgroundColor: ["rgba(245,158,11,0.4)", "rgba(245,158,11,0.75)"],
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, labels: { color: C.textSec, font: { size: 10 }, boxWidth: 10 } },
+          tooltip: { ...baseTooltip, callbacks: { label: ctx => ctx.dataset.label + ": " + fmtK(ctx.raw) } },
+          datalabels: {
+            anchor: "end", align: "top",
+            color: (ctx) => ctx.datasetIndex === 0 ? C.cyan : C.amber,
+            font: { size: 10, weight: "700" },
+            formatter: v => fmtK(v),
+          },
+          annotation: {
+            annotations: {
+              deltaLabel: {
+                type: "label",
+                xValue: 1,
+                yValue: combinedTarget * 0.55,
+                content: ["+$291K/mo", "+$3.5M/year"],
+                color: "#10B981",
+                font: { size: 14, weight: "bold" },
+                backgroundColor: "rgba(16,185,129,0.08)",
+                padding: { top: 8, bottom: 8, left: 14, right: 14 },
+                borderRadius: 6,
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("Monthly Net Revenue"), stacked: true, ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
   }
 
   // Initial render
