@@ -100,7 +100,7 @@
   const dlFmtPct = (v) => v ? v.toFixed(0) + "%" : "";
 
   // ── Sidebar / Mobile Navigation ──
-  let activeDb = 0;
+  let activeDb = "overview";
   let activeSubTab = 0;
   const navItems = document.querySelectorAll(".nav-item");
   const container = $("#dashboardContainer");
@@ -108,7 +108,7 @@
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.dataset.db;
-      const db = raw.startsWith("init") ? raw : parseInt(raw);
+      const db = (raw.startsWith("init") || raw === "overview") ? raw : parseInt(raw);
       navItems.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeDb = db;
@@ -2106,6 +2106,7 @@
   // ===========================================================================
   function render() {
     destroyCharts();
+    if (activeDb === "overview") { renderOverview(); return; }
     switch (activeDb) {
       case 0: renderSchoolPL("r", "Rosen"); break;
       case 1: renderSchoolPL("i", "IIBS"); break;
@@ -2123,6 +2124,8 @@
     if (activeDb === "init2") renderInit2();
     if (activeDb === "init3") renderInit3();
     if (activeDb === "init4") renderInit4();
+    if (activeDb === "init5") renderInit5();
+    if (activeDb === "init6") renderInit6();
   }
 
   // ── Initiative KPI Row (supports cls for card accents and sub for subtitles) ──
@@ -3074,6 +3077,414 @@
         scales: {
           x: baseScaleX,
           y: { ...baseScaleY("Monthly Net Revenue"), stacked: true, ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // OVERVIEW TAB
+  // ===========================================================================
+  function renderOverview() {
+    function navTo(db) {
+      activeDb = db;
+      activeSubTab = 0;
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(b => {
+        b.classList.toggle('active', b.dataset.db === String(db));
+      });
+      render();
+    }
+
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="init-headline">Strategic Initiatives — Overview</div>
+      <div class="init-subtitle">All initiatives grouped by implementation timeline. Combined addressable opportunity: $7.2M annually.</div>
+
+      <div class="overview-columns">
+        <!-- LEFT: IMMEDIATE -->
+        <div>
+          <div class="overview-col-header green">
+            <span class="header-dot"></span>
+            Immediate Steps
+          </div>
+
+          <div class="overview-box">
+            <div class="overview-box-title">Set Baseline Standards</div>
+            <div class="overview-box-desc">Golden thresholds, calls/lead optimal, never fall below minimums</div>
+            <span class="overview-box-link" data-nav="init1">See Tab &rarr;</span>
+          </div>
+
+          <div class="overview-box">
+            <div class="overview-box-title">Weekend Coverage Expansion</div>
+            <div class="overview-box-desc">80% Saturday coverage + Sunday shifts = +$48K/mo</div>
+            <span class="overview-box-link" data-nav="init6">See Tab &rarr;</span>
+          </div>
+        </div>
+
+        <!-- RIGHT: MID-TERM -->
+        <div>
+          <div class="overview-col-header amber">
+            <span class="header-dot"></span>
+            Mid-Term Steps (May / 90 Days)
+          </div>
+
+          <div class="overview-box">
+            <div class="overview-box-title">Separate Reps by School</div>
+            <div class="overview-box-desc">Eliminate zero-sum bandwidth, dedicated conversion optimization</div>
+            <span class="overview-box-link" data-nav="init2">See Tab &rarr;</span>
+          </div>
+
+          <div class="overview-box">
+            <div class="overview-box-title">LeadGen Model Pilot</div>
+            <div class="overview-box-desc">Test low-CPL lead gen at 25% of budget on new reps</div>
+            <span class="overview-box-link" data-nav="init5">See Tab &rarr;</span>
+          </div>
+
+          <div class="overview-box">
+            <div class="overview-box-title">New CRM + Ad Accounts</div>
+            <div class="overview-box-desc">Stabilize CPL fluctuation, modern lead routing</div>
+            <span class="overview-box-link" data-nav="init3">See Tab &rarr;</span>
+          </div>
+
+          <div class="overview-box">
+            <div class="overview-box-title">Lead Target Rebalancing</div>
+            <div class="overview-box-desc">Close the 28-32% delivery gap = +$291K/mo</div>
+            <span class="overview-box-link" data-nav="init4">See Tab &rarr;</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="overview-impact-banner">
+        <div class="overview-impact-label">Combined Annual Impact</div>
+        <div class="overview-impact-value">$7.2M</div>
+        <div class="overview-impact-sub">Baselines $756K + Weekend $576K + Lead Gap $3.5M + LeadGen $2.4M</div>
+      </div>
+    </div>`;
+
+    // Bind "See Tab" links
+    document.querySelectorAll('.overview-box-link[data-nav]').forEach(link => {
+      link.addEventListener('click', () => navTo(link.dataset.nav));
+    });
+  }
+
+  // ===========================================================================
+  // INITIATIVE 5: LEADGEN PILOT
+  // ===========================================================================
+  function renderInit5() {
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="init-headline">Can a Low-CPL LeadGen Model Deliver Better ROI?</div>
+      <div class="init-subtitle">Piloting 25% of media budget at $25 CPL with new reps — May target</div>
+
+      ${initKpiRow([
+        { label: "Test Budget Rosen", value: "$29K/mo", cls: "accent-amber" },
+        { label: "Test Budget IIBS", value: "$40K/mo", cls: "accent-amber" },
+        { label: "Projected ROI Rosen", value: "180%", cls: "accent-green" },
+        { label: "Projected ROI IIBS", value: "194%", cls: "accent-green" },
+      ])}
+
+      <!-- Chart 1: How it works - comparison cards -->
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-card-title">The LeadGen Model — How It Works</div>
+        <div class="comparison-grid">
+          <div class="comparison-card">
+            <div class="comparison-card-header current">Current Model</div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">CPL</span>
+              <span class="comparison-row-value">$50 (R) / $24 (I)</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">Conversion Rate</span>
+              <span class="comparison-row-value">8.9% (R) / 3.9% (I)</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">Lead Quality</span>
+              <span class="comparison-row-value">High-intent, expensive</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">Rep Expectation</span>
+              <span class="comparison-row-value">18%+ conversion</span>
+            </div>
+          </div>
+          <div class="comparison-card">
+            <div class="comparison-card-header leadgen">LeadGen Model</div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">CPL</span>
+              <span class="comparison-row-value" style="color:#10B981;">$25 both</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">Conversion Rate</span>
+              <span class="comparison-row-value">5% target</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">Lead Quality</span>
+              <span class="comparison-row-value">Lower-intent, 70% cheaper</span>
+            </div>
+            <div class="comparison-row">
+              <span class="comparison-row-label">Rep Expectation</span>
+              <span class="comparison-row-value">New reps, no expectations</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart 2: ROI Comparison -->
+      <div class="chart-grid cols-2">
+        ${chartCard("init5ch1", "ROI Comparison at 25% Budget Test", 320)}
+
+        <!-- Chart 3: Timeline -->
+        <div class="chart-card">
+          <div class="chart-card-title">Test Plan — Implementation Timeline</div>
+          <div class="timeline-container">
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div>
+                <div class="timeline-label">Week 1-2</div>
+                <div class="timeline-text">Recruit 2-3 new LeadGen reps per school</div>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:var(--accent-cyan);"></div>
+              <div>
+                <div class="timeline-label" style="color:var(--accent-cyan);">Week 3-4</div>
+                <div class="timeline-text">Launch $25 CPL campaigns (25% of budget)</div>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:var(--accent-amber);"></div>
+              <div>
+                <div class="timeline-label" style="color:var(--accent-amber);">Month 2</div>
+                <div class="timeline-text">Measure conversion rates, adjust targeting and scripts</div>
+              </div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:var(--accent-emerald);"></div>
+              <div>
+                <div class="timeline-label" style="color:var(--accent-emerald);">Month 3</div>
+                <div class="timeline-text">Scale decision based on results — expand or reallocate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="verdict-banner">
+        <div class="verdict-label">Verdict</div>
+        <div class="verdict-text">At $25 CPL with conservative 5% conversion, the LeadGen model delivers 180-194% ROI vs 136-151% on current model. Lower risk per lead, better unit economics, no disruption to existing high-performer pipeline.</div>
+      </div>
+    </div>`;
+
+    // ROI Comparison Chart
+    mkChart("init5ch1", {
+      type: "bar",
+      data: {
+        labels: ["Rosen", "IIBS"],
+        datasets: [
+          {
+            label: "Current Model ROI",
+            data: [151, 136],
+            backgroundColor: C.amberFade,
+            borderColor: C.amber,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            barPercentage: 0.6,
+            categoryPercentage: 0.7,
+            datalabels: { anchor: "end", align: "top", color: C.amber, font: { size: 12, weight: "700" }, formatter: v => v + "%" },
+          },
+          {
+            label: "LeadGen Model ROI",
+            data: [180, 194],
+            backgroundColor: C.emeraldFade,
+            borderColor: C.emerald,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            barPercentage: 0.6,
+            categoryPercentage: 0.7,
+            datalabels: { anchor: "end", align: "top", color: C.emerald, font: { size: 12, weight: "700" }, formatter: v => v + "%" },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.raw}%`,
+              afterBody: (items) => {
+                const i = items[0].dataIndex;
+                if (i === 0) return "Rosen: $81K rev on $29K spend";
+                return "IIBS: $116K rev on $40K spend";
+              },
+            },
+          },
+          annotation: {
+            annotations: {
+              rosenLabel: {
+                type: "label",
+                xValue: 0,
+                yValue: 40,
+                content: ["$81K rev", "on $29K spend"],
+                font: { size: 9, family: "Inter" },
+                color: C.textMuted,
+              },
+              iibsLabel: {
+                type: "label",
+                xValue: 1,
+                yValue: 40,
+                content: ["$116K rev", "on $40K spend"],
+                font: { size: 9, family: "Inter" },
+                color: C.textMuted,
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("ROI %"), max: 240, ticks: { ...baseScaleY("").ticks, callback: v => v + "%" } },
+        },
+      },
+    });
+  }
+
+  // ===========================================================================
+  // INITIATIVE 6: WEEKEND COVERAGE
+  // ===========================================================================
+  function renderInit6() {
+    container.innerHTML = `<div class="dashboard-view">
+      <div class="init-headline">How Much Revenue Are We Losing on Weekends?</div>
+      <div class="init-subtitle">80% Saturday coverage + Sunday shifts — immediate implementation</div>
+
+      ${initKpiRow([
+        { label: "Saturday Revenue", value: "$16K", sub: "per school/mo (4 Sat × $4K)", cls: "accent-green" },
+        { label: "Sunday Revenue", value: "$8K", sub: "per school/mo (4 Sun × $2K)", cls: "accent-green" },
+        { label: "Combined Monthly", value: "$48K", sub: "both schools", cls: "accent-amber" },
+        { label: "Annual Impact", value: "$576K", sub: "12 months", cls: "accent-green" },
+      ])}
+
+      <div class="chart-grid cols-2">
+        ${chartCard("init6ch1", "Weekend Revenue Opportunity", 320)}
+        ${chartCard("init6ch2", "Annual Impact Projection", 320)}
+      </div>
+
+      <div class="verdict-banner">
+        <div class="verdict-label">Verdict</div>
+        <div class="verdict-text">Weekend coverage expansion requires only scheduling changes — no new hires, no technology, no budget increase. Immediate +$48K/month (+$576K/year) at near-zero marginal cost.</div>
+      </div>
+    </div>`;
+
+    // Chart 1: Weekend Revenue Opportunity (stacked bar)
+    mkChart("init6ch1", {
+      type: "bar",
+      data: {
+        labels: ["Rosen", "IIBS", "Total"],
+        datasets: [
+          {
+            label: "Saturday",
+            data: [16000, 16000, 32000],
+            backgroundColor: C.emeraldFade,
+            borderColor: C.emerald,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "center", align: "center", color: C.emerald, font: { size: 11, weight: "600" }, formatter: v => fmtK(v) },
+          },
+          {
+            label: "Sunday",
+            data: [8000, 8000, 16000],
+            backgroundColor: C.cyanFade,
+            borderColor: C.cyan,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: { anchor: "center", align: "center", color: C.cyan, font: { size: 11, weight: "600" }, formatter: v => fmtK(v) },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: C.textSec, font: { size: 10, family: "Inter" }, boxWidth: 12, padding: 12 } },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtK(ctx.raw)}` },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("Revenue / Month"), stacked: true, ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
+        },
+      },
+    });
+
+    // Chart 2: Annual Impact Projection
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const cumulative = months.map((_, i) => 48000 * (i + 1));
+
+    mkChart("init6ch2", {
+      type: "bar",
+      data: {
+        labels: months,
+        datasets: [
+          {
+            label: "Cumulative Revenue",
+            data: cumulative,
+            backgroundColor: cumulative.map((v, i) => i === 11 ? C.emerald : C.emeraldFade),
+            borderColor: C.emerald,
+            borderWidth: 1,
+            borderRadius: barRadius,
+            datalabels: {
+              display: (ctx) => ctx.dataIndex % 3 === 2 || ctx.dataIndex === 11,
+              anchor: "end", align: "top",
+              color: C.emerald,
+              font: { size: 9, weight: "600" },
+              formatter: v => fmtK(v),
+            },
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...baseTooltip,
+            callbacks: { label: ctx => `Cumulative: ${fmtK(ctx.raw)}` },
+          },
+          annotation: {
+            annotations: {
+              target: {
+                type: "line",
+                yMin: 576000,
+                yMax: 576000,
+                borderColor: C.amber,
+                borderWidth: 1.5,
+                borderDash: [6, 4],
+                label: {
+                  display: true,
+                  content: "$576K Annual Target",
+                  position: "start",
+                  backgroundColor: "rgba(245,158,11,0.15)",
+                  color: C.amber,
+                  font: { size: 10, weight: "600", family: "Inter" },
+                  padding: 4,
+                },
+              },
+              note: {
+                type: "label",
+                xValue: 5,
+                yValue: 200000,
+                content: ["Low-risk, immediate revenue", "with minimal additional cost"],
+                font: { size: 9, family: "Inter", style: "italic" },
+                color: C.textMuted,
+              },
+            },
+          },
+        },
+        scales: {
+          x: baseScaleX,
+          y: { ...baseScaleY("Cumulative Revenue"), ticks: { ...baseScaleY("").ticks, callback: v => fmtK(v) } },
         },
       },
     });
