@@ -108,7 +108,7 @@
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.dataset.db;
-      const db = (raw.startsWith("init") || raw === "overview" || raw === "standards") ? raw : parseInt(raw);
+      const db = (raw.startsWith("init") || raw === "overview" || raw === "standards" || raw === "pilot") ? raw : parseInt(raw);
       navItems.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeDb = db;
@@ -2127,6 +2127,7 @@
     if (activeDb === "init5") renderInit5();
     if (activeDb === "init6") renderInit6();
     if (activeDb === "standards") renderStandards();
+    if (activeDb === "pilot") renderPilot();
   }
 
   // ── Initiative KPI Row (supports cls for card accents and sub for subtitles) ──
@@ -4178,4 +4179,247 @@
 
   // Initial render
   render();
+
+
+// ===========================================================================
+// PILOT TAB — LLA LeadGen Pilot Live Tracker
+// ===========================================================================
+function renderPilot() {
+  const d = container;
+  if (!d) return;
+
+  const P = PILOT;
+  const days = ["May 7","May 8","May 9","May 10","May 11"];
+  const meta = P.meta.days, goog = P.google.days;
+
+  // Totals
+  const totalSpend = P.meta.total_spend + P.google.total_spend;
+  const totalLeads = P.meta.total_leads + P.google.total_leads;
+  const avgCpl = totalLeads > 0 ? (totalSpend / totalLeads) : 0;
+  const daysElapsed = 5;
+  const budgetPct = (totalSpend / P.plan.total_budget * 100).toFixed(1);
+  const leadsPct = (totalLeads / P.plan.total_leads_goal * 100).toFixed(1);
+  const runRateLeads = Math.round((totalLeads / daysElapsed) * P.plan.pilot_days);
+  const week1SpendPct = (totalSpend / P.plan.weeks[0].budget * 100).toFixed(0);
+
+  // Daily combined
+  const dailySpend = days.map((_, i) => (meta[i].spend + goog[i].spend).toFixed(2));
+  const dailyLeads = days.map((_, i) => meta[i].leads + goog[i].leads);
+  const dailyPlan = [342, 342, 342, 342, 342]; // $2400/7days
+  const ctrData = goog.map(g => g.ctr);
+
+  d.innerHTML = `
+  <div style="padding:28px 32px;max-width:1300px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <h1 style="font:700 24px/1.2 Inter,sans-serif;color:#fff;letter-spacing:-.02em">🚀 LLA LeadGen Pilot — Live Tracker</h1>
+        <p style="font:400 13px Inter,sans-serif;color:rgba(255,255,255,.45);margin-top:4px">May 7 – 27, 2026 &nbsp;·&nbsp; 21-day pilot &nbsp;·&nbsp; Day <strong style="color:#10b981">${daysElapsed}</strong> of 21 &nbsp;·&nbsp; Google Search + Meta</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);color:#10b981;font:600 11px Inter;padding:5px 12px;border-radius:20px">🔴 LIVE</span>
+        <span style="background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);font:500 11px Inter;padding:5px 12px;border-radius:20px">Updated: May 11, 2026</span>
+      </div>
+    </div>
+
+    <!-- KPI ROW -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:20px 0">
+      ${[
+        {l:"Total Leads",v:totalLeads,sub:`of ${P.plan.total_leads_goal} goal`,pct:leadsPct,color:"#10b981",good:true},
+        {l:"Total Spend",v:"$"+totalSpend.toFixed(0),sub:`of $${P.plan.total_budget.toLocaleString()} budget`,pct:budgetPct,color:"#f59e0b",good:null},
+        {l:"Avg CPL",v:"$"+avgCpl.toFixed(2),sub:`goal $${P.plan.avg_cpl_goal}`,pct:null,color:avgCpl<=P.plan.avg_cpl_goal?"#10b981":"#f87171",good:null},
+        {l:"Meta CPL",v:"$"+P.meta.avg_cpl,sub:`${P.meta.total_leads} leads · $${P.meta.total_spend.toFixed(0)} spent`,pct:null,color:"#1877F2",good:null},
+        {l:"Google CPL",v:"$"+P.google.total_leads>0?(P.google.total_spend/P.google.total_leads).toFixed(0):"—",sub:`${P.google.total_leads} leads · $${P.google.total_spend.toFixed(0)} spent`,pct:null,color:"#34A853",good:null},
+        {l:"Run Rate",v:runRateLeads+" leads",sub:`at current pace to day 21`,pct:null,color:runRateLeads>=P.plan.total_leads_goal?"#10b981":"#f87171",good:null},
+      ].map(k=>`
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px 16px">
+          <div style="font:500 9px Inter;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${k.l}</div>
+          <div style="font:700 22px/1 'JetBrains Mono',monospace;color:${k.color};letter-spacing:-.01em">${k.v}</div>
+          <div style="font:400 10px Inter;color:rgba(255,255,255,.35);margin-top:5px">${k.sub}</div>
+          ${k.pct?`<div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:8px"><div style="height:100%;width:${Math.min(k.pct,100)}%;background:${k.color};border-radius:2px;transition:.3s"></div></div><div style="font:600 9px 'JetBrains Mono';color:${k.color};margin-top:3px">${k.pct}%</div>`:""}
+        </div>`).join("")}
+    </div>
+
+    <!-- WEEK PLAN PROGRESS -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:20px;margin-bottom:16px">
+      <div style="font:600 13px Inter;color:#fff;margin-bottom:14px">📅 Weekly Plan vs Actuals</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        ${P.plan.weeks.map((w,i)=>{
+          const isActive = i===0;
+          const actualSpend = isActive ? totalSpend : 0;
+          const actualLeads = isActive ? totalLeads : 0;
+          const spendPct = isActive ? Math.round(actualSpend/w.budget*100) : 0;
+          return `<div style="background:${isActive?"rgba(16,185,129,.06)":"rgba(255,255,255,.02)"};border:1px solid ${isActive?"rgba(16,185,129,.25)":"rgba(255,255,255,.05)"};border-radius:8px;padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <span style="font:600 12px Inter;color:${isActive?"#10b981":"rgba(255,255,255,.5)"}">Week ${w.week}</span>
+              <span style="font:500 10px Inter;color:rgba(255,255,255,.35)">${w.days}</span>
+              ${isActive?`<span style="background:rgba(16,185,129,.2);color:#10b981;font:600 9px Inter;padding:2px 7px;border-radius:10px">ACTIVE</span>`:""}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font:12px 'JetBrains Mono',monospace">
+              <div><div style="font:500 9px Inter;color:rgba(255,255,255,.35);margin-bottom:2px">BUDGET</div><div style="color:#f59e0b">$${w.budget.toLocaleString()}</div>${isActive?`<div style="color:rgba(255,255,255,.4);font-size:10px">$${actualSpend.toFixed(0)} so far</div>`:""}</div>
+              <div><div style="font:500 9px Inter;color:rgba(255,255,255,.35);margin-bottom:2px">LEADS TARGET</div><div style="color:#06b6d4">${w.leads_plan}</div>${isActive?`<div style="color:rgba(255,255,255,.4);font-size:10px">${actualLeads} so far</div>`:""}</div>
+              <div><div style="font:500 9px Inter;color:rgba(255,255,255,.35);margin-bottom:2px">CPL PLAN</div><div style="color:rgba(255,255,255,.7)">$${w.cpl_plan}</div></div>
+              <div><div style="font:500 9px Inter;color:rgba(255,255,255,.35);margin-bottom:2px">CPC PLAN</div><div style="color:rgba(255,255,255,.7)">$${w.cpc_plan}</div></div>
+            </div>
+            ${isActive?`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font:500 9px Inter;color:rgba(255,255,255,.35);margin-bottom:3px"><span>Budget used</span><span>${spendPct}%</span></div><div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px"><div style="height:100%;width:${Math.min(spendPct,100)}%;background:#10b981;border-radius:2px"></div></div></div>`:""}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px">
+        <div style="font:600 12px Inter;color:#fff;margin-bottom:4px">Daily Spend vs Plan</div>
+        <div style="font:400 10px Inter;color:rgba(255,255,255,.35);margin-bottom:12px">Actual daily spend (Google + Meta) vs daily budget target</div>
+        <canvas id="pc1" height="200"></canvas>
+      </div>
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px">
+        <div style="font:600 12px Inter;color:#fff;margin-bottom:4px">Daily Lead Generation by Channel</div>
+        <div style="font:400 10px Inter;color:rgba(255,255,255,.35);margin-bottom:12px">Google vs Meta leads per day — stacked</div>
+        <canvas id="pc2" height="200"></canvas>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px">
+        <div style="font:600 12px Inter;color:#fff;margin-bottom:4px">CPL per Day — Actual vs Goal</div>
+        <div style="font:400 10px Inter;color:rgba(255,255,255,.35);margin-bottom:12px">Days with leads only. Goal: $26 avg, $22 by week 3</div>
+        <canvas id="pc3" height="200"></canvas>
+      </div>
+      <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px">
+        <div style="font:600 12px Inter;color:#fff;margin-bottom:4px">Google CTR by Day</div>
+        <div style="font:400 10px Inter;color:rgba(255,255,255,.35);margin-bottom:12px">Click-through rate trend — improving = better quality score</div>
+        <canvas id="pc4" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- DAILY BREAKDOWN TABLE -->
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden">
+      <div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.06);font:600 12px Inter;color:#fff">Daily Breakdown — Per Channel</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font:12px 'JetBrains Mono',monospace">
+          <thead>
+            <tr style="background:rgba(255,255,255,.03)">
+              <th style="padding:10px 14px;text-align:left;font:500 9px Inter;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.07em">Date</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#1877F2;text-transform:uppercase;letter-spacing:.07em;text-align:right">Meta Spend</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#1877F2;text-transform:uppercase;letter-spacing:.07em;text-align:right">Meta Leads</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#1877F2;text-transform:uppercase;letter-spacing:.07em;text-align:right">Meta CPL</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#34A853;text-transform:uppercase;letter-spacing:.07em;text-align:right">Google Spend</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#34A853;text-transform:uppercase;letter-spacing:.07em;text-align:right">Google Leads</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#34A853;text-transform:uppercase;letter-spacing:.07em;text-align:right">Google CTR</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:#34A853;text-transform:uppercase;letter-spacing:.07em;text-align:right">Google CPC</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;text-align:right">Total Spend</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;text-align:right">Total Leads</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;text-align:right">Daily Plan</th>
+              <th style="padding:10px 14px;font:500 9px Inter;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;text-align:right">vs Plan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${days.map((day,i)=>{
+              const ms=meta[i],gs=goog[i];
+              const tot=(ms.spend+gs.spend).toFixed(0);
+              const tl=ms.leads+gs.leads;
+              const plan=342;
+              const diff=((ms.spend+gs.spend)-plan).toFixed(0);
+              const over=parseFloat(diff)>0;
+              const mcpl=ms.leads>0?"$"+ms.cpl.toFixed(2):"—";
+              const gcpl=gs.leads>0?"$"+(gs.spend/gs.leads).toFixed(2):"—";
+              return `<tr style="border-bottom:1px solid rgba(255,255,255,.03);${i%2===0?"":"background:rgba(255,255,255,.01)"}">
+                <td style="padding:9px 14px;color:#fff;font:600 12px Inter">${day}</td>
+                <td style="padding:9px 14px;text-align:right;color:${ms.spend>0?"#1877F2":"rgba(255,255,255,.2)"}">$${ms.spend}</td>
+                <td style="padding:9px 14px;text-align:right;color:${ms.leads>0?"#10b981":"rgba(255,255,255,.2)"}">${ms.leads}</td>
+                <td style="padding:9px 14px;text-align:right;color:rgba(255,255,255,.6)">${ms.leads>0?"$"+ms.cpl:"—"}</td>
+                <td style="padding:9px 14px;text-align:right;color:${gs.spend>0?"#34A853":"rgba(255,255,255,.2)"}">$${gs.spend.toFixed(2)}</td>
+                <td style="padding:9px 14px;text-align:right;color:${gs.leads>0?"#10b981":"rgba(255,255,255,.2)"}">${gs.leads}</td>
+                <td style="padding:9px 14px;text-align:right;color:rgba(255,255,255,.6)">${gs.ctr?gs.ctr.toFixed(2)+"%" :"—"}</td>
+                <td style="padding:9px 14px;text-align:right;color:rgba(255,255,255,.6)">${gs.cpc?"$"+gs.cpc:"—"}</td>
+                <td style="padding:9px 14px;text-align:right;color:#fff;font-weight:600">$${tot}</td>
+                <td style="padding:9px 14px;text-align:right;color:${tl>0?"#10b981":"rgba(255,255,255,.4)"}"> ${tl}</td>
+                <td style="padding:9px 14px;text-align:right;color:rgba(255,255,255,.4)">$${plan}</td>
+                <td style="padding:9px 14px;text-align:right;color:${over?"#f87171":"#10b981"}">${over?"+":""}$${diff}</td>
+              </tr>`;
+            }).join("")}
+            <tr style="background:rgba(255,255,255,.04);border-top:1px solid rgba(255,255,255,.08);font-weight:700">
+              <td style="padding:10px 14px;color:#fff;font:700 12px Inter">TOTAL</td>
+              <td style="padding:10px 14px;text-align:right;color:#1877F2">$${P.meta.total_spend.toFixed(2)}</td>
+              <td style="padding:10px 14px;text-align:right;color:#10b981">${P.meta.total_leads}</td>
+              <td style="padding:10px 14px;text-align:right;color:rgba(255,255,255,.6)">$${P.meta.avg_cpl}</td>
+              <td style="padding:10px 14px;text-align:right;color:#34A853">$${P.google.total_spend.toFixed(2)}</td>
+              <td style="padding:10px 14px;text-align:right;color:#10b981">${P.google.total_leads}</td>
+              <td style="padding:10px 14px;text-align:right;color:rgba(255,255,255,.6)">4.56%</td>
+              <td style="padding:10px 14px;text-align:right;color:rgba(255,255,255,.6)">$3.13</td>
+              <td style="padding:10px 14px;text-align:right;color:#fff">$${totalSpend.toFixed(0)}</td>
+              <td style="padding:10px 14px;text-align:right;color:#10b981">${totalLeads}</td>
+              <td style="padding:10px 14px;text-align:right;color:rgba(255,255,255,.4)">$1,710</td>
+              <td style="padding:10px 14px;text-align:right;color:#f87171">-$${(1710-totalSpend).toFixed(0)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+
+  // Destroy existing charts
+  ['pc1','pc2','pc3','pc4'].forEach(id => {
+    const c = Chart.getChart(id);
+    if (c) c.destroy();
+  });
+
+  const baseOpts = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#999', font:{size:10,family:'Inter'}, boxWidth:10, padding:10 } }, tooltip:{ callbacks:{} } },
+    scales:{
+      x:{ ticks:{color:'#666',font:{size:9}}, grid:{color:'rgba(255,255,255,.04)'} },
+      y:{ ticks:{color:'#666',font:{size:10}}, grid:{color:'rgba(255,255,255,.04)'} }
+    }
+  };
+
+  // Chart 1: Daily spend vs plan
+  new Chart(document.getElementById('pc1'), {
+    type:'bar',
+    data:{ labels:days,
+      datasets:[
+        {label:'Google',data:goog.map(g=>g.spend.toFixed(2)),backgroundColor:'rgba(52,168,83,.6)',borderColor:'#34A853',borderWidth:1,borderRadius:3},
+        {label:'Meta',data:meta.map(m=>m.spend.toFixed(2)),backgroundColor:'rgba(24,119,242,.5)',borderColor:'#1877F2',borderWidth:1,borderRadius:3},
+        {label:'Daily Plan ($342)',type:'line',data:[342,342,342,342,342],borderColor:'rgba(245,158,11,.8)',borderDash:[5,3],borderWidth:2,pointRadius:0,fill:false},
+      ]
+    },
+    options:{...baseOpts, scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>'$'+v}}}}
+  });
+
+  // Chart 2: Daily leads by channel
+  new Chart(document.getElementById('pc2'), {
+    type:'bar',
+    data:{ labels:days,
+      datasets:[
+        {label:'Google Leads',data:goog.map(g=>g.leads),backgroundColor:'rgba(52,168,83,.7)',borderRadius:3},
+        {label:'Meta Leads',data:meta.map(m=>m.leads),backgroundColor:'rgba(24,119,242,.6)',borderRadius:3},
+      ]
+    },
+    options:{...baseOpts, scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>v+' leads'}}}}
+  });
+
+  // Chart 3: CPL per day with goal line
+  const cplDays=['May 7','May 8','May 11'], cplVals=[52.62,10.53,33.28];
+  new Chart(document.getElementById('pc3'), {
+    type:'bar',
+    data:{ labels:cplDays,
+      datasets:[
+        {label:'Actual CPL',data:cplVals,backgroundColor:cplVals.map(v=>v<=26?'rgba(16,185,129,.6)':'rgba(248,113,113,.6)'),borderRadius:3},
+        {label:'Goal $26',type:'line',data:[26,26,26],borderColor:'rgba(245,158,11,.8)',borderDash:[5,3],borderWidth:2,pointRadius:0,fill:false},
+      ]
+    },
+    options:{...baseOpts, scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>'$'+v}}}}
+  });
+
+  // Chart 4: Google CTR
+  new Chart(document.getElementById('pc4'), {
+    type:'line',
+    data:{ labels:days,
+      datasets:[{label:'Google CTR %',data:goog.map(g=>g.ctr||0),borderColor:'#34A853',backgroundColor:'rgba(52,168,83,.1)',fill:true,tension:.3,pointRadius:4}]
+    },
+    options:{...baseOpts, scales:{...baseOpts.scales,y:{...baseOpts.scales.y,ticks:{...baseOpts.scales.y.ticks,callback:v=>v+'%'}}}}
+  });
+}
+
 })();
