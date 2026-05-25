@@ -4189,7 +4189,7 @@
 function renderPilot() {
   const P = PILOT;
   const S = P.sales;
-  const today = 19, total_days = P.plan.pilot_days;
+  const today = 19, total_days = P.plan.pilot_days; // Day 19 of 24 (May 25)
 
   // Projections at current week CPL ($11.98)
   const proj_leads_10k = Math.round(10000 / S.current_week_cpl);
@@ -4215,13 +4215,13 @@ function renderPilot() {
           🚀 LLA LeadGen Pilot — Full Performance Report
         </h1>
         <p style="font:400 13px Inter;color:rgba(255,255,255,.4);margin-top:5px">
-          May 7 – 27, 2026 &nbsp;·&nbsp; Meta + Google Search &nbsp;·&nbsp;
-          <strong style="color:#10b981">Day ${today} of ${total_days}</strong> &nbsp;·&nbsp; Data through May 22
+          May 7 – 30, 2026 &nbsp;·&nbsp; Meta + Google Search &nbsp;·&nbsp;
+          <strong style="color:#10b981">Day ${today} of ${total_days}</strong> &nbsp;·&nbsp; W3 complete · W4 live
         </p>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <span style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:#10b981;font:700 11px Inter;padding:6px 14px;border-radius:20px">🔴 LIVE</span>
-        <span style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#10b981;font:600 11px Inter;padding:6px 14px;border-radius:20px">Meta CPL: $11.40 avg</span>
+        <span style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#10b981;font:600 11px Inter;padding:6px 14px;border-radius:20px">W3 CPL: $13.37 · 8 acq</span>
       </div>
     </div>
 
@@ -4242,11 +4242,11 @@ function renderPilot() {
     <!-- EXEC KPI ROW -->
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px">
       ${[
-        {l:'Total Spend', v:'$'+Math.round(tot_spend).toLocaleString(), sub:'Meta+Google combined', c:'#f59e0b'},
-        {l:'Total Leads', v:tot_leads, sub:'of '+P.plan.revised_leads_goal+' revised goal', c:'#10b981'},
-        {l:'Pilot Avg CPL', v:'$'+tot_cpl.toFixed(2), sub:'Goal was $26 avg ✓', c:'#10b981'},
-        {l:'This Week CPL', v:'$'+S.current_week_cpl, sub:'Meta Wk 3 · beating $24 target', c:'#10b981'},
-        {l:'Revenue So Far', v:'$'+S.revenue_so_far.toLocaleString(), sub:S.acq_so_far+' acq · mROI 1.18x', c:'#a78bfa'},
+        {l:'Total Spend', v:'$'+Math.round(tot_spend).toLocaleString(), sub:'W1–W3 combined · W4 live', c:'#f59e0b'},
+        {l:'Total Leads', v:tot_leads, sub:'of '+P.plan.revised_leads_goal+' revised goal ('+leads_pct+'%)', c:'#10b981'},
+        {l:'Pilot Avg CPL', v:'$'+tot_cpl.toFixed(2), sub:'vs $26 plan — 37% better ✓', c:'#10b981'},
+        {l:'W3 Final CPL', v:'$'+S.current_week_cpl, sub:'W3 final · 56% below $30 launch CPL', c:'#10b981'},
+        {l:'Revenue So Far', v:'$'+S.revenue_so_far.toLocaleString(), sub:S.acq_so_far+' acq · W2+W3 · 1.65x avg mROI', c:'#a78bfa'},
         {l:'$10K Projection', v:proj_leads_10k+' leads', sub:proj_acq+' acq · $'+proj_revenue.toLocaleString()+' rev', c:'#06b6d4'},
       ].map(k=>`
         <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:18px 16px">
@@ -4272,19 +4272,23 @@ function renderPilot() {
           <tbody>
             ${P.weeks.map((w,i)=>{
               const done = w.leads !== null;
+              const isLive = !done && i === P.weeks.length-1;
               const cplGood = done && w.cpl <= w.cpl_plan;
               const leadsGood = done && w.leads >= w.leads_plan;
-              const color = i===0?'#10b981':i===1?'#06b6d4':'#a78bfa';
-              return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.015)'}">
-                <td style="padding:10px 10px;text-align:right;font:700 12px Inter;color:${color}">W${w.week}</td>
+              const colors = ['#10b981','#06b6d4','#a78bfa','#f59e0b'];
+              const color = colors[i] || '#888';
+              return `<tr style="${i%2===0?'':'background:rgba(255,255,255,.015)'}${isLive?';border:1px solid rgba(245,158,11,.25)':''}">
+                <td style="padding:10px 10px;text-align:right;font:700 12px Inter;color:${color}">
+                  W${w.week}${isLive?' <span style="font:600 9px Inter;background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 6px;border-radius:4px">LIVE</span>':''}
+                </td>
                 <td style="padding:10px 10px;text-align:right;font:11px Inter;color:rgba(255,255,255,.5)">${w.dates}</td>
                 <td style="padding:10px 10px;text-align:right;font:12px 'JetBrains Mono';color:rgba(255,255,255,.5)">$${w.budget.toLocaleString()}</td>
-                <td style="padding:10px 10px;text-align:right;font:700 12px 'JetBrains Mono';color:${done?'#f59e0b':'rgba(255,255,255,.3)'}">${done?'$'+w.spend.toLocaleString():'—'}</td>
+                <td style="padding:10px 10px;text-align:right;font:700 12px 'JetBrains Mono';color:${done?'#f59e0b':isLive?'rgba(245,158,11,.4)':'rgba(255,255,255,.3)'}">${done?'$'+w.spend.toLocaleString():isLive?'In progress':'—'}</td>
                 <td style="padding:10px 10px;text-align:right;font:12px 'JetBrains Mono';color:rgba(255,255,255,.4)">${w.leads_plan}</td>
-                <td style="padding:10px 10px;text-align:right;font:700 13px 'JetBrains Mono';color:${done?(leadsGood?'#10b981':'#f87171'):'rgba(255,255,255,.3)'}">${done?w.leads:'—'}</td>
+                <td style="padding:10px 10px;text-align:right;font:700 13px 'JetBrains Mono';color:${done?(leadsGood?'#10b981':'#f87171'):isLive?'rgba(245,158,11,.4)':'rgba(255,255,255,.3)'}">${done?w.leads:isLive?'—':'—'}</td>
                 <td style="padding:10px 10px;text-align:right;font:12px 'JetBrains Mono';color:rgba(255,255,255,.4)">$${w.cpl_plan}</td>
-                <td style="padding:10px 10px;text-align:right;font:700 13px 'JetBrains Mono';color:${done?(cplGood?'#10b981':'#f87171'):'rgba(255,255,255,.3)'}">${done?'$'+w.cpl:'—'}</td>
-                <td style="padding:10px 10px;text-align:right;font:700 12px 'JetBrains Mono';color:${w.mroi?w.mroi>=1?'#10b981':'#f59e0b':'rgba(255,255,255,.3)'}">${w.mroi?w.mroi+'x':'—'}</td>
+                <td style="padding:10px 10px;text-align:right;font:700 13px 'JetBrains Mono';color:${done?(cplGood?'#10b981':'#f87171'):isLive?'rgba(245,158,11,.4)':'rgba(255,255,255,.3)'}">${done?'$'+w.cpl:'—'}</td>
+                <td style="padding:10px 10px;text-align:right;font:700 12px 'JetBrains Mono';color:${w.mroi?w.mroi>=1?'#10b981':'#f59e0b':isLive?'rgba(245,158,11,.4)':'rgba(255,255,255,.3)'}">${w.mroi?w.mroi+'x':isLive?'Pending':'—'}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -4454,7 +4458,7 @@ function renderPilot() {
     <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden">
       <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.06)">
         <div style="font:700 15px Inter;color:#fff">Daily Meta Performance</div>
-        <div style="font:400 11px Inter;color:rgba(255,255,255,.35);margin-top:2px">May 7 – 22 · 16 days · Lead Gen campaign</div>
+        <div style="font:400 11px Inter;color:rgba(255,255,255,.35);margin-top:2px">May 7 – 23 · W1–W3 complete · W4 live from May 24</div>
       </div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="background:rgba(255,255,255,.02)">
