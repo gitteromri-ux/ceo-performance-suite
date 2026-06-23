@@ -4651,7 +4651,7 @@ function renderLongevityCEO() {
       </div>
       <div class="lla-insight" style="--ac:${C.purple}">
         <div class="lla-insight-h">PRICING + TEST</div>
-        <div class="lla-insight-b">CEO directive sets an <b>80/20</b> weight toward the clear <b>$289/month</b> price. The <b>$30-CPL bio-age hook</b> runs as a top-funnel curiosity test before any scale decision.</div>
+        <div class="lla-insight-b">CEO directive sets an <b>80/20</b> weight toward the clear <b>$289/month</b> price. The <b>$30-CPL bio-age hook</b> runs as an awareness/curiosity test before any scale decision.</div>
         <div class="lla-insight-ids">Monthly: #108775/776 · Bio-Age: #108777</div>
       </div>
     </div>
@@ -4754,28 +4754,7 @@ function renderLongevityCEO() {
       <div class="lla-note">${D.pricing_target.note}</div>
     </div>
 
-    <!-- ENROLLMENT FUNNEL PROJECTION -->
-    <div class="lla-card" style="margin-top:20px">
-      <div class="lla-card-h"><div><div class="lla-card-t">📈 Lead → Enrollment Funnel &amp; Revenue Projection</div>
-      <div class="lla-card-s">Assumes ${Math.round(M.lead_to_call*100)}% lead→call · ${Math.round(M.call_to_enroll*100)}% call→enroll · $${M.course_value.toLocaleString()} avg course value</div></div></div>
-      <div class="lla-funnel">
-        ${(()=>{ const pp = LLA_period==='june'?P.june:LLA_period==='july'?P.july:P.daily;
-          return [
-            {l:'Leads', v:pp.leads.toLocaleString(), s:'projected', c:C.green},
-            {l:'Sales Calls', v:pp.calls.toLocaleString(), s:`${Math.round(M.lead_to_call*100)}% booked`, c:C.cyan},
-            {l:'Enrollments', v:pp.enrolls.toLocaleString(), s:`${Math.round(M.call_to_enroll*100)}% close`, c:C.amber},
-            {l:'Revenue', v:money(pp.revenue), s:`${pp.roas}× ROAS`, c:C.purple},
-          ].map((x,i,arr)=>`
-            <div class="lla-fstep">
-              <div class="lla-fstep-l">${x.l}</div>
-              <div class="lla-fstep-v" style="color:${x.c}">${x.v}</div>
-              <div class="lla-fstep-s">${x.s}</div>
-            </div>${i<arr.length-1?'<div class="lla-farrow">→</div>':''}`).join('');
-        })()}
-      </div>
-    </div>
-
-    <!-- PERIOD PROJECTION CARDS -->
+    <!-- LEAD VOLUME PROJECTION CARDS -->
     <div class="lla-grid-3" style="margin-top:20px">
       ${[
         {p:P.daily, c:C.cyan},
@@ -4787,15 +4766,15 @@ function renderLongevityCEO() {
           <div class="lla-proj-v" style="color:${x.c}">${x.p.leads.toLocaleString()} <span class="lla-proj-u">leads</span></div>
           <div class="lla-proj-grid">
             <div><span>Spend</span><b class="lla-mono">${money(x.p.budget)}</b></div>
-            <div><span>Enrollments</span><b class="lla-mono" style="color:${x.c}">${x.p.enrolls}</b></div>
-            <div><span>Revenue</span><b class="lla-mono">${money(x.p.revenue)}</b></div>
-            <div><span>ROAS</span><b class="lla-mono" style="color:${C.green}">${x.p.roas}×</b></div>
+            <div><span>Blended CPL</span><b class="lla-mono" style="color:${C.amber}">$${AN.blendedCpl}</b></div>
+            <div><span>Leads / day</span><b class="lla-mono" style="color:${x.c}">${Math.round(x.p.leads/x.p.days)}</b></div>
+            <div><span>High-intent leads</span><b class="lla-mono" style="color:${C.emer}">${Math.round(AN.highIntentLeads*x.p.days)}</b></div>
           </div>
         </div>`).join('')}
     </div>
 
     <div class="lla-foot">
-      CPL assumptions — High-Intent <b>$26</b> · Normal/Broad <b>$17</b> · Bio-Age <b>$30</b>. Funnel rates &amp; course value are planning assumptions; true up with live Meta + CRM actuals daily. Every campaign ID links to its Meta ad set.
+      CPL assumptions — High-Intent <b>$26</b> · Normal/Broad <b>$17</b> · Bio-Age <b>$30</b>. Lead quotas are planning estimates; true up with live Meta actuals daily. Every campaign ID links to its Meta ad set.
     </div>
 
   </div>`;

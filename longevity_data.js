@@ -11,11 +11,7 @@ var LLA_CEO = {
     july_label: "July (full)",
     cpl: { high: 26, normal: 17, bio: 30 },
     crm_base: "https://adsmanager.facebook.com/adsmanager/manage/adsets?act=&selected_adset_ids=",
-    updated: "June 23, 2026",
-    // enrollment economics (planning assumptions)
-    lead_to_call: 0.40,        // 40% of leads booked to a sales call
-    call_to_enroll: 0.18,      // 18% of calls convert to enrollment
-    course_value: 1350         // avg revenue per enrollment ($)
+    updated: "June 23, 2026"
   },
 
   // ── REAL CAMPAIGN AD SETS (with CRM IDs + strategic role) ──
@@ -40,7 +36,7 @@ var LLA_CEO = {
     { id:"108777", name:"Adset 1_All_All_CPM_#108777", short:"Bio-Age", status:"New",
       budget:180, cpl:30, age:"35–65+", intent:"Broad (Curiosity)", socio:"Broad (no income filter)",
       form:"Website LP — “What's your bio age?”", price:"Bio-Age Hook", dest:"Website LP", bio:true, accent:"#A78BFA", flagship:false,
-      role:"Top-of-funnel curiosity test", issue:"Highest CPL ($30) — experimental bio-age hook to website LP; measures whether curiosity entry beats native forms before scaling." }
+      role:"Awareness / curiosity test", issue:"Highest CPL ($30) — experimental bio-age hook to website LP; measures whether curiosity entry beats native forms before scaling." }
   ],
 
   // ── 80 / 20 PRICING STRATEGY TARGET (CEO directive) ──
@@ -83,20 +79,10 @@ LLA_CEO.groups = (function(){
   };
 })();
 
-// ── PERIOD PROJECTIONS (with enrollment funnel) ──
+// ── PERIOD PROJECTIONS (lead volume only) ──
 LLA_CEO.periods = (function(){
-  const T = LLA_CEO.totals, M = LLA_CEO.meta;
-  const mk = (days,label)=>{
-    const leads = T.leads_raw*days;
-    const calls = leads*M.lead_to_call;
-    const enrolls = calls*M.call_to_enroll;
-    const revenue = enrolls*M.course_value;
-    const spend = T.budget*days;
-    return { days, label,
-      budget: spend, leads: Math.round(leads),
-      calls: Math.round(calls), enrolls: Math.round(enrolls),
-      revenue: Math.round(revenue), roas: +(revenue/spend).toFixed(2) };
-  };
+  const T = LLA_CEO.totals;
+  const mk = (days,label)=>({ days, label, budget: T.budget*days, leads: Math.round(T.leads_raw*days) });
   return { daily: mk(1,"Daily run-rate"), june: mk(8,"Jun 23–30"), july: mk(31,"July"), full: mk(39,"Full Period") };
 })();
 

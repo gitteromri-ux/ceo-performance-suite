@@ -995,14 +995,6 @@ canvas { display: block; }
 .lla-target-ids { font:600 12px 'JetBrains Mono',monospace; color:rgba(255,255,255,.45); margin-top:10px; }
 .lla-note { font:400 13px/1.55 Inter; color:rgba(255,255,255,.55); margin-top:20px; padding-top:16px; border-top:1px solid rgba(255,255,255,.08); }
 
-/* Funnel */
-.lla-funnel { display:flex; align-items:stretch; gap:0; margin-top:22px; flex-wrap:wrap; }
-.lla-fstep { flex:1; min-width:130px; text-align:center; padding:20px 14px; background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.07); border-radius:14px; }
-.lla-fstep-l { font:600 11px Inter; letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.42); }
-.lla-fstep-v { font:800 30px/1 Inter; letter-spacing:-.03em; margin:11px 0 7px; }
-.lla-fstep-s { font:500 11.5px Inter; color:rgba(255,255,255,.45); }
-.lla-farrow { display:flex; align-items:center; padding:0 14px; font-size:22px; color:rgba(255,255,255,.25); }
-
 /* Projection cards */
 .lla-proj { padding:22px 24px; }
 .lla-proj-l { font:700 14px Inter; color:#fff; }
