@@ -4547,23 +4547,25 @@ function renderPilot() {
 // ===========================================================================
 var LLA_period = 'daily'; // daily | june | july
 function renderLongevityCEO() {
-  const D = LLA_CEO, T = D.totals, P = D.periods;
-  const crmLink = (id)=> `${D.meta.crm_base}${id}`;
+  const D = LLA_CEO, T = D.totals, P = D.periods, G = D.groups, AN = D.analytics, M = D.meta;
+  const crmLink = (id)=> `${M.crm_base}${id}`;
   const money = (n)=> '$'+Math.round(n).toLocaleString();
-  const C = { green:'#10B981', cyan:'#06B6D4', purple:'#A78BFA', amber:'#F59E0B', red:'#F87171', mute:'rgba(255,255,255,.35)' };
+  const C = { green:'#10B981', emer:'#34D399', cyan:'#06B6D4', purple:'#A78BFA', amber:'#F59E0B', red:'#F87171', white:'#fff', mute:'rgba(255,255,255,.4)' };
 
   const mult = LLA_period==='june' ? P.june.days : LLA_period==='july' ? P.july.days : 1;
-  const periodTag = LLA_period==='june' ? P.june.label : LLA_period==='july' ? P.july.label : 'Daily run-rate';
+  const periodTag = LLA_period==='june' ? 'Jun 23–30 · 8 days' : LLA_period==='july' ? 'July · 31 days' : 'Daily run-rate';
   const dispBudget = T.budget*mult;
   const dispLeads  = Math.round(T.leads_raw*mult);
   const sorted = [...D.adsets].sort((a,b)=>b.budget-a.budget);
+  const maxBudget = Math.max(...D.adsets.map(a=>a.budget));
 
+  // ── allocation strip helper (bigger) ──
   function allocStrip(title, sub, group, colorMap){
     return `<div class="lla-card">
       <div class="lla-card-h">
         <div><div class="lla-card-t">${title}</div><div class="lla-card-s">${sub}</div></div>
       </div>
-      <div style="margin-top:14px">
+      <div style="margin-top:18px">
         ${group.map((g,i)=>{
           const c = colorMap[i % colorMap.length];
           const lpd = +(g.leads*mult).toFixed(mult===1?1:0);
@@ -4572,12 +4574,12 @@ function renderLongevityCEO() {
               <span class="lla-alloc-label" style="color:${c}">${g.label}</span>
               <span class="lla-alloc-nums">
                 <span class="lla-mono" style="color:#fff">${money(g.budget*mult)}</span>
-                <span class="lla-pill" style="background:${c}22;color:${c}">${g.pctBudget}% budget</span>
+                <span class="lla-pill" style="background:${c}22;color:${c}">${g.pctBudget}%</span>
               </span>
             </div>
             <div class="lla-bar"><div class="lla-bar-fill" style="width:${g.pctBudget}%;background:linear-gradient(90deg,${c},${c}aa)"></div></div>
             <div class="lla-alloc-bot">
-              <span>${g.pctLeads}% of leads</span>
+              <span>${g.pctLeads}% of leads · ${g.ids.map(id=>'#'+id).join(', ')}</span>
               <span class="lla-mono" style="color:${c}">${lpd} leads${mult===1?'/day':''}</span>
             </div>
           </div>`;
@@ -4591,93 +4593,125 @@ function renderLongevityCEO() {
 
     <div class="lla-head">
       <div>
-        <h1 class="lla-h1">Longevity Life Academy — CEO Marketing Snapshot</h1>
-        <p class="lla-sub">${D.meta.period_label} &nbsp;·&nbsp; Meta Paid Social &nbsp;·&nbsp; Strategic daily lead &amp; budget allocation &nbsp;·&nbsp; <span style="color:${C.mute}">Updated ${D.meta.updated}</span></p>
+        <h1 class="lla-h1">🧬 Longevity Life Academy — CEO Marketing Snapshot</h1>
+        <p class="lla-sub">${M.period_label} &nbsp;·&nbsp; Meta Paid Social &nbsp;·&nbsp; Daily strategic lead &amp; budget command view &nbsp;·&nbsp; <span style="color:${C.mute}">Updated ${M.updated}</span></p>
       </div>
-      <div class="lla-period-toggle">
-        <button class="lla-pt ${LLA_period==='daily'?'on':''}" data-llap="daily">Daily</button>
-        <button class="lla-pt ${LLA_period==='june'?'on':''}" data-llap="june">Jun 23–30</button>
-        <button class="lla-pt ${LLA_period==='july'?'on':''}" data-llap="july">July</button>
+      <div class="lla-head-r">
+        <span class="lla-live"><span class="lla-live-dot"></span>5 AD SETS LIVE</span>
+        <div class="lla-period-toggle">
+          <button class="lla-pt ${LLA_period==='daily'?'on':''}" data-llap="daily">Daily</button>
+          <button class="lla-pt ${LLA_period==='june'?'on':''}" data-llap="june">Jun 23–30</button>
+          <button class="lla-pt ${LLA_period==='july'?'on':''}" data-llap="july">July</button>
+        </div>
       </div>
     </div>
 
+    <!-- BUDGET PACING RAIL -->
+    <div class="lla-rail">
+      <div class="lla-rail-top">
+        <span class="lla-rail-l">Spend pacing · ${periodTag}</span>
+        <span class="lla-rail-r"><span class="lla-mono" style="color:${C.amber}">${money(dispBudget)}</span> deployed${LLA_period==='daily'?'/day':''} &nbsp;·&nbsp; full window ${money(P.full.budget)} over 39 days</span>
+      </div>
+      <div class="lla-rail-track">
+        <div class="lla-rail-fill" style="width:${LLA_period==='daily'?'2.6':LLA_period==='june'?'20.5':'79.5'}%"></div>
+        <div class="lla-rail-mark" style="left:20.5%"><span>Jun 30</span></div>
+        <div class="lla-rail-mark" style="left:100%"><span>Jul 31</span></div>
+      </div>
+    </div>
+
+    <!-- HERO KPI ROW (6 big cards) -->
     <div class="lla-kpi-row">
       ${[
-        {l:'Daily Budget', v:money(dispBudget), s:`${periodTag} · ${D.adsets.length} ad sets live`, c:C.amber},
-        {l:'Projected Leads', v:dispLeads.toLocaleString(), s:`Blended CPL $${(dispBudget/dispLeads).toFixed(2)}`, c:C.green},
-        {l:'High-Intent + Affluent', v:`${D.groups.intent[0].pctBudget}%`, s:`${money(D.groups.intent[0].budget*mult)} · ${Math.round(D.groups.intent[0].leads*mult)} leads`, c:C.green},
-        {l:'Core Age 35–64', v:`${D.groups.age[0].pctBudget}%`, s:`${money(D.groups.age[0].budget*mult)} · ${Math.round(D.groups.age[0].leads*mult)} leads`, c:C.cyan},
-        {l:'Monthly-Price Forms', v:`${D.groups.price.find(g=>g.label.includes('Monthly')).pctBudget}%`, s:`vs per-session · 80/20 target set`, c:C.purple},
+        {l:'Daily Budget', v:money(dispBudget), s:`${periodTag} · 5 ad sets`, c:C.amber, ic:'💰'},
+        {l:'Projected Leads', v:dispLeads.toLocaleString(), s:`Blended CPL $${AN.blendedCpl}`, c:C.green, ic:'🎯'},
+        {l:'High-Intent + Affluent', v:`${AN.highIntentPct}%`, s:`${money(AN.highIntentBudget*mult)} · ${Math.round(AN.highIntentLeads*mult)} qualified leads`, c:C.emer, ic:'⭐'},
+        {l:'Core Age 35–64', v:`${AN.corePct}%`, s:`${money(AN.coreBudget*mult)} · ${Math.round(AN.coreLeads*mult)} leads`, c:C.cyan, ic:'👥'},
+        {l:'Cost / Affluent Lead', v:`$${AN.costPerAffluentLead}`, s:`vs $${M.cpl.normal} broad CPL`, c:C.purple, ic:'💎'},
+        {l:'Monthly-Price Forms', v:`${AN.monthlyPct}%`, s:`80/20 target set · see below`, c:C.amber, ic:'🏷️'},
       ].map(k=>`
         <div class="lla-kpi">
+          <div class="lla-kpi-ic">${k.ic}</div>
           <div class="lla-kpi-l">${k.l}</div>
           <div class="lla-kpi-v" style="color:${k.c}">${k.v}</div>
           <div class="lla-kpi-s">${k.s}</div>
         </div>`).join('')}
     </div>
 
-    <div class="lla-card" style="margin-bottom:18px">
-      <div class="lla-card-h">
-        <div><div class="lla-card-t">🎯 Daily Lead Quota by Campaign</div>
-        <div class="lla-card-s">Every row links to its live Meta ad set · ${periodTag}</div></div>
-        <span class="lla-pill" style="background:${C.green}22;color:${C.green}">Total ${dispLeads.toLocaleString()} leads</span>
+    <!-- STRATEGIC ANALYSIS BAND -->
+    <div class="lla-insights">
+      <div class="lla-insight" style="--ac:${C.green}">
+        <div class="lla-insight-h">THE BIG SHIFT</div>
+        <div class="lla-insight-b"><b>58%</b> of spend (${money(AN.newSpend)}/day) now runs through <b>3 new optimized ad sets</b> that didn't exist a week ago — moving budget out of broad reach and into high-intent, income-filtered, core-age buyers.</div>
+        <div class="lla-insight-ids">#108776 · #108775 · #108777</div>
       </div>
-      <div class="lla-table-wrap">
-      <table class="lla-table">
-        <thead><tr>
-          ${['Campaign / CRM ID','Status','Budget','% Budget','CPL','Lead Quota','Age','Intent','Socio-Economic','Price Frame'].map(h=>`<th>${h}</th>`).join('')}
-        </tr></thead>
-        <tbody>
+      <div class="lla-insight" style="--ac:${C.emer}">
+        <div class="lla-insight-h">QUALITY ENGINE</div>
+        <div class="lla-insight-b"><b>48%</b> of budget reaches affluent (Top 5/10/10–25% ZIP) high-intent audiences at a <b>$${AN.costPerAffluentLead} cost-per-affluent-lead</b> — a controlled premium over the $${M.cpl.normal} broad CPL in exchange for materially higher lead quality.</div>
+        <div class="lla-insight-ids">#108776 (flagship) · #108775</div>
+      </div>
+      <div class="lla-insight" style="--ac:${C.purple}">
+        <div class="lla-insight-h">PRICING + TEST</div>
+        <div class="lla-insight-b">CEO directive sets an <b>80/20</b> weight toward the clear <b>$289/month</b> price. The <b>$30-CPL bio-age hook</b> runs as a top-funnel curiosity test before any scale decision.</div>
+        <div class="lla-insight-ids">Monthly: #108775/776 · Bio-Age: #108777</div>
+      </div>
+    </div>
+
+    <!-- CAMPAIGN COMMAND TABLE -->
+    <div class="lla-card lla-cmd">
+      <div class="lla-card-h">
+        <div><div class="lla-card-t">🎯 Campaign Command — Daily Lead Quota by Ad Set</div>
+        <div class="lla-card-s">Every campaign ID links to its live Meta ad set · each row maps the ID to the strategic issue it owns · ${periodTag}</div></div>
+        <span class="lla-pill lla-pill-lg" style="background:${C.green}22;color:${C.green}">TOTAL ${dispLeads.toLocaleString()} LEADS</span>
+      </div>
+      <div class="lla-cmd-list">
         ${sorted.map(a=>{
           const lq = +(a.budget/a.cpl*mult).toFixed(mult===1?1:0);
           const pctB = Math.round(a.budget/T.budget*100);
-          return `<tr class="lla-trow ${a.flagship?'lla-flag':''}">
-            <td class="lla-td-name">
-              <a href="${crmLink(a.id)}" target="_blank" rel="noopener" class="lla-crm" style="--ac:${a.accent}">
-                <span class="lla-dot" style="background:${a.accent}"></span>
-                ${a.name}
-                <svg viewBox="0 0 16 16" class="lla-ext"><path d="M5 3h8v8M13 3L6 10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-              </a>
-              ${a.flagship?'<span class="lla-tag">FLAGSHIP</span>':''}
-            </td>
-            <td><span class="lla-status ${a.status==='New'?'new':'old'}">${a.status}</span></td>
-            <td class="lla-mono">${money(a.budget*mult)}</td>
-            <td class="lla-mono" style="color:${C.mute}">${pctB}%</td>
-            <td class="lla-mono" style="color:${a.cpl>=30?C.purple:a.cpl>=26?C.green:C.cyan}">$${a.cpl}</td>
-            <td class="lla-mono lla-quota" style="color:${a.accent}">${lq}</td>
-            <td>${a.age}</td>
-            <td><span class="lla-intent ${a.intent.startsWith('High')?'hi':'br'}">${a.intent}</span></td>
-            <td class="lla-socio">${a.socio}</td>
-            <td class="lla-price">${a.price}</td>
-          </tr>`;
+          return `<a class="lla-cmd-row ${a.flagship?'flag':''}" href="${crmLink(a.id)}" target="_blank" rel="noopener" style="--ac:${a.accent}">
+            <div class="lla-cmd-id">
+              <div class="lla-cmd-idnum">#${a.id}<svg viewBox="0 0 16 16" class="lla-ext"><path d="M5 3h8v8M13 3L6 10" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg></div>
+              <div class="lla-cmd-name">${a.name}</div>
+              <div class="lla-cmd-badges">
+                <span class="lla-status ${a.status==='New'?'new':'old'}">${a.status}</span>
+                ${a.flagship?`<span class="lla-tag">FLAGSHIP</span>`:''}
+                <span class="lla-role">${a.role}</span>
+              </div>
+            </div>
+            <div class="lla-cmd-mid">
+              <div class="lla-cmd-metric"><span class="lla-cmd-ml">Budget</span><span class="lla-mono lla-cmd-mv" style="color:#fff">${money(a.budget*mult)}</span><span class="lla-cmd-ms">${pctB}% of spend</span></div>
+              <div class="lla-cmd-metric"><span class="lla-cmd-ml">CPL</span><span class="lla-mono lla-cmd-mv" style="color:${a.cpl>=30?C.purple:a.cpl>=26?C.green:C.cyan}">$${a.cpl}</span><span class="lla-cmd-ms">${a.intent.startsWith('High')?'high intent':'broad'}</span></div>
+              <div class="lla-cmd-metric"><span class="lla-cmd-ml">Lead Quota</span><span class="lla-mono lla-cmd-mv lla-quota" style="color:${a.accent}">${lq}</span><span class="lla-cmd-ms">leads${mult===1?'/day':''}</span></div>
+            </div>
+            <div class="lla-cmd-targeting">
+              <div class="lla-tchip">👥 ${a.age}</div>
+              <div class="lla-tchip ${a.intent.startsWith('High')?'hi':''}">🎯 ${a.intent}</div>
+              <div class="lla-tchip ${a.socio.includes('Affluent')?'aff':''}">💰 ${a.socio}</div>
+              <div class="lla-tchip">🏷️ ${a.form}</div>
+            </div>
+            <div class="lla-cmd-issue"><span class="lla-issue-tag" style="background:${a.accent}1e;color:${a.accent}">ROLE / ISSUE</span> ${a.issue}</div>
+          </a>`;
         }).join('')}
-        </tbody>
-        <tfoot><tr>
-          <td style="font-weight:700;color:#fff">TOTAL · ${D.adsets.length} ad sets</td>
-          <td></td>
-          <td class="lla-mono" style="font-weight:700;color:${C.amber}">${money(dispBudget)}</td>
-          <td class="lla-mono">100%</td>
-          <td class="lla-mono" style="color:${C.mute}">$${(dispBudget/dispLeads).toFixed(0)}</td>
-          <td class="lla-mono lla-quota" style="font-weight:700;color:${C.green}">${dispLeads.toLocaleString()}</td>
-          <td colspan="4"></td>
-        </tr></tfoot>
-      </table>
+      </div>
+      <div class="lla-cmd-foot">
+        <span><b style="color:#fff">5 ad sets</b> · ${money(dispBudget)} total ${LLA_period==='daily'?'daily':''} spend</span>
+        <span class="lla-mono">Blended CPL <b style="color:${C.amber}">$${AN.blendedCpl}</b></span>
+        <span class="lla-mono">Quota <b style="color:${C.green}">${dispLeads.toLocaleString()} leads</b></span>
       </div>
     </div>
 
-    <div class="lla-grid-3">
-      ${allocStrip('👥 Age Targeting','Where the budget &amp; leads sit by age', D.groups.age, [C.cyan,C.amber])}
-      ${allocStrip('🎯 Intent Level','High-intent vs broad prospecting', D.groups.intent, [C.green,C.cyan])}
-      ${allocStrip('💰 Socio-Economic','Affluent income-filtered vs broad', D.groups.socio, [C.green,C.amber])}
-    </div>
-
-    <div class="lla-grid-2" style="margin-top:18px">
+    <!-- CHARTS: budget by campaign + price doughnut -->
+    <div class="lla-grid-2" style="margin-top:20px">
       <div class="lla-card">
-        <div class="lla-card-h"><div><div class="lla-card-t">💲 Price Presentation — Budget Split</div>
-        <div class="lla-card-s">How the offer is framed across spend</div></div></div>
-        <div class="lla-chart-box"><canvas id="llaPrice"></canvas></div>
-        <div style="margin-top:12px">
-          ${D.groups.price.map((g,i)=>{
+        <div class="lla-card-h"><div><div class="lla-card-t">📊 Budget &amp; Lead Quota by Campaign ID</div>
+        <div class="lla-card-s">Spend share vs daily lead contribution — ranked</div></div></div>
+        <div class="lla-chart-box" style="height:300px"><canvas id="llaCampaign"></canvas></div>
+      </div>
+      <div class="lla-card">
+        <div class="lla-card-h"><div><div class="lla-card-t">💲 Price Presentation Split</div>
+        <div class="lla-card-s">How the offer is framed across current spend</div></div></div>
+        <div class="lla-chart-box" style="height:248px"><canvas id="llaPrice"></canvas></div>
+        <div style="margin-top:14px">
+          ${G.price.map((g,i)=>{
             const c=[C.green,C.cyan,C.purple][i%3];
             return `<div class="lla-alloc-row">
               <div class="lla-alloc-top">
@@ -4689,59 +4723,119 @@ function renderLongevityCEO() {
           }).join('')}
         </div>
       </div>
+    </div>
 
-      <div class="lla-card lla-target">
-        <div class="lla-card-h"><div><div class="lla-card-t" style="color:${C.green}">→ CEO Target: 80 / 20 Pricing Shift</div>
-        <div class="lla-card-s">Reweight presentation toward the clear monthly price</div></div>
-        <span class="lla-pill" style="background:${C.green}22;color:${C.green}">DIRECTIVE</span></div>
-        <div class="lla-target-grid">
-          <div class="lla-target-box win">
-            <div class="lla-target-pct" style="color:${C.green}">80%</div>
-            <div class="lla-target-name">Monthly — $289/mo</div>
-            <div class="lla-target-meta">${money(D.pricing_target.monthly.budget)}/day · @ $${D.pricing_target.monthly.cpl} · ~${Math.round(D.pricing_target.monthly.leads*mult)} leads</div>
-          </div>
-          <div class="lla-target-box">
-            <div class="lla-target-pct" style="color:${C.amber}">20%</div>
-            <div class="lla-target-name">Per-Session — $83</div>
-            <div class="lla-target-meta">${money(D.pricing_target.per_session.budget)}/day · @ $${D.pricing_target.per_session.cpl} · ~${Math.round(D.pricing_target.per_session.leads*mult)} leads</div>
-          </div>
+    <!-- MACRO ALLOCATION (3) -->
+    <div class="lla-grid-3" style="margin-top:20px">
+      ${allocStrip('👥 Age Targeting','Budget &amp; leads by age band', G.age, [C.cyan,C.amber])}
+      ${allocStrip('🎯 Intent Level','High-intent vs broad prospecting', G.intent, [C.green,C.cyan])}
+      ${allocStrip('💰 Socio-Economic','Affluent income-filter vs broad', G.socio, [C.emer,C.amber])}
+    </div>
+
+    <!-- 80/20 PRICING DIRECTIVE (full width, large) -->
+    <div class="lla-card lla-target" style="margin-top:20px">
+      <div class="lla-card-h"><div><div class="lla-card-t" style="color:${C.green}">→ CEO Target: 80 / 20 Pricing Shift</div>
+      <div class="lla-card-s">Reweight the $1,690/day lead-form pool toward the clear monthly price</div></div>
+      <span class="lla-pill lla-pill-lg" style="background:${C.green}22;color:${C.green}">DIRECTIVE</span></div>
+      <div class="lla-target-grid">
+        <div class="lla-target-box win">
+          <div class="lla-target-pct" style="color:${C.green}">80%</div>
+          <div class="lla-target-name">Monthly — $289/mo</div>
+          <div class="lla-target-meta">${money(D.pricing_target.monthly.budget*mult)}${LLA_period==='daily'?'/day':''} · @ $${D.pricing_target.monthly.cpl} CPL · ~${Math.round(D.pricing_target.monthly.leads*mult)} leads</div>
+          <div class="lla-target-ids">#108775 · #108776</div>
         </div>
-        <div class="lla-note">${D.pricing_target.note}</div>
+        <div class="lla-target-box">
+          <div class="lla-target-pct" style="color:${C.amber}">20%</div>
+          <div class="lla-target-name">Per-Session — $83</div>
+          <div class="lla-target-meta">${money(D.pricing_target.per_session.budget*mult)}${LLA_period==='daily'?'/day':''} · @ $${D.pricing_target.per_session.cpl} CPL · ~${Math.round(D.pricing_target.per_session.leads*mult)} leads</div>
+          <div class="lla-target-ids">#108718 · #108719</div>
+        </div>
+      </div>
+      <div class="lla-note">${D.pricing_target.note}</div>
+    </div>
+
+    <!-- ENROLLMENT FUNNEL PROJECTION -->
+    <div class="lla-card" style="margin-top:20px">
+      <div class="lla-card-h"><div><div class="lla-card-t">📈 Lead → Enrollment Funnel &amp; Revenue Projection</div>
+      <div class="lla-card-s">Assumes ${Math.round(M.lead_to_call*100)}% lead→call · ${Math.round(M.call_to_enroll*100)}% call→enroll · $${M.course_value.toLocaleString()} avg course value</div></div></div>
+      <div class="lla-funnel">
+        ${(()=>{ const pp = LLA_period==='june'?P.june:LLA_period==='july'?P.july:P.daily;
+          return [
+            {l:'Leads', v:pp.leads.toLocaleString(), s:'projected', c:C.green},
+            {l:'Sales Calls', v:pp.calls.toLocaleString(), s:`${Math.round(M.lead_to_call*100)}% booked`, c:C.cyan},
+            {l:'Enrollments', v:pp.enrolls.toLocaleString(), s:`${Math.round(M.call_to_enroll*100)}% close`, c:C.amber},
+            {l:'Revenue', v:money(pp.revenue), s:`${pp.roas}× ROAS`, c:C.purple},
+          ].map((x,i,arr)=>`
+            <div class="lla-fstep">
+              <div class="lla-fstep-l">${x.l}</div>
+              <div class="lla-fstep-v" style="color:${x.c}">${x.v}</div>
+              <div class="lla-fstep-s">${x.s}</div>
+            </div>${i<arr.length-1?'<div class="lla-farrow">→</div>':''}`).join('');
+        })()}
       </div>
     </div>
 
-    <div class="lla-grid-3" style="margin-top:18px">
+    <!-- PERIOD PROJECTION CARDS -->
+    <div class="lla-grid-3" style="margin-top:20px">
       ${[
-        {l:'Daily Run-Rate', d:'per day', b:T.budget, ld:T.leads, c:C.cyan},
-        {l:P.june.label, d:`${P.june.days} days`, b:P.june.budget, ld:P.june.leads, c:C.green},
-        {l:P.july.label, d:`${P.july.days} days`, b:P.july.budget, ld:P.july.leads, c:C.purple},
+        {p:P.daily, c:C.cyan},
+        {p:P.june,  c:C.green},
+        {p:P.july,  c:C.purple},
       ].map(x=>`
         <div class="lla-card lla-proj">
-          <div class="lla-proj-l">${x.l} <span style="color:${C.mute};font-weight:400">· ${x.d}</span></div>
-          <div class="lla-proj-v" style="color:${x.c}">${x.ld.toLocaleString()} <span class="lla-proj-u">leads</span></div>
-          <div class="lla-proj-b">${money(x.b)} spend</div>
+          <div class="lla-proj-l">${x.p.label} <span style="color:${C.mute};font-weight:400">· ${x.p.days} day${x.p.days>1?'s':''}</span></div>
+          <div class="lla-proj-v" style="color:${x.c}">${x.p.leads.toLocaleString()} <span class="lla-proj-u">leads</span></div>
+          <div class="lla-proj-grid">
+            <div><span>Spend</span><b class="lla-mono">${money(x.p.budget)}</b></div>
+            <div><span>Enrollments</span><b class="lla-mono" style="color:${x.c}">${x.p.enrolls}</b></div>
+            <div><span>Revenue</span><b class="lla-mono">${money(x.p.revenue)}</b></div>
+            <div><span>ROAS</span><b class="lla-mono" style="color:${C.green}">${x.p.roas}×</b></div>
+          </div>
         </div>`).join('')}
     </div>
 
     <div class="lla-foot">
-      CPL assumptions — High-Intent $26 · Normal/Broad $17 · Bio-Age $30. Lead quotas are planning estimates; true up with live Meta actuals daily. All campaign rows link to their Meta ad set by CRM ID.
+      CPL assumptions — High-Intent <b>$26</b> · Normal/Broad <b>$17</b> · Bio-Age <b>$30</b>. Funnel rates &amp; course value are planning assumptions; true up with live Meta + CRM actuals daily. Every campaign ID links to its Meta ad set.
     </div>
 
   </div>`;
 
+  // period toggle wiring
   document.querySelectorAll('.lla-pt').forEach(b=>{
     b.addEventListener('click', ()=>{ LLA_period = b.dataset.llap; renderLongevityCEO(); });
   });
 
+  // ── CHART 1: budget + lead quota by campaign (combo bar) ──
+  const cc = Chart.getChart('llaCampaign'); if(cc) cc.destroy();
+  const cs = [...D.adsets].sort((a,b)=>b.budget-a.budget);
+  new Chart(document.getElementById('llaCampaign'), {
+    type:'bar',
+    data:{ labels:cs.map(a=>'#'+a.id),
+      datasets:[
+        { label:'Budget ($/day)', data:cs.map(a=>a.budget), backgroundColor:cs.map(a=>a.accent+'cc'), borderRadius:6, yAxisID:'y', order:2 },
+        { label:'Lead quota', type:'line', data:cs.map(a=>+(a.budget/a.cpl).toFixed(1)), borderColor:'#fff', backgroundColor:'#fff',
+          borderWidth:2, pointRadius:4, pointBackgroundColor:'#fff', yAxisID:'y1', order:1, tension:.3 }
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', labels:{ color:'#94A3B8', font:{size:11,family:'Inter'}, boxWidth:12, padding:14 } },
+        tooltip:{ callbacks:{ label:(c)=> c.dataset.label.includes('Budget') ? ` Budget: $${c.raw}/day` : ` Quota: ${c.raw} leads/day` } } },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ color:'#94A3B8', font:{size:11,family:'JetBrains Mono'} } },
+        y:{ position:'left', grid:{color:'rgba(255,255,255,.05)'}, ticks:{ color:'#64748B', font:{size:10}, callback:v=>'$'+v } },
+        y1:{ position:'right', grid:{display:false}, ticks:{ color:'#94A3B8', font:{size:10}, callback:v=>v+' ld' }, min:0 }
+      } }
+  });
+
+  // ── CHART 2: price doughnut ──
   const pc = Chart.getChart('llaPrice'); if(pc) pc.destroy();
-  const pg = D.groups.price;
+  const pg = G.price;
   new Chart(document.getElementById('llaPrice'), {
     type:'doughnut',
     data:{ labels:pg.map(g=>g.label),
-      datasets:[{ data:pg.map(g=>g.budget), backgroundColor:['#10B981','#06B6D4','#A78BFA'], borderWidth:0, hoverOffset:6 }]},
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
-      plugins:{ legend:{ position:'bottom', labels:{ color:'#94A3B8', font:{size:10,family:'Inter'}, boxWidth:10, padding:10 } },
-        tooltip:{ callbacks:{ label:(c)=>` ${c.label}: $${c.raw} (${Math.round(c.raw/D.totals.budget*100)}%)` } } } }
+      datasets:[{ data:pg.map(g=>g.budget), backgroundColor:['#10B981','#06B6D4','#A78BFA'], borderWidth:0, hoverOffset:8 }]},
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'60%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#94A3B8', font:{size:11,family:'Inter'}, boxWidth:11, padding:12 } },
+        tooltip:{ callbacks:{ label:(c)=> ` ${c.label}: $${c.raw} (${Math.round(c.raw/D.totals.budget*100)}%)` } } } }
   });
 }
 
