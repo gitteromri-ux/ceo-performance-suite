@@ -2192,7 +2192,11 @@
         Same leads, 37% fewer calls, and the calls that were made came from the wrong people. Mokla and Levite logged 0 calls, de Montclair handled 3 orders instead of 30–37, Levy made 38% fewer calls than in October, and three reps with 0–2 months tenure made 57% of all calls for 1 acquisition. Seniors convert 8.5% of contacted orders over 8 months; newcomers 1.6%. 69% of the week's leads arrived Thu–Sun, when calls per lead fell to 1.9 / 3.3 / 3.0 / 0.5 and nobody closed.
       </div></div>
       <div class="charts-grid cols-2">
-        ${chartCard("faCh1", "Golden rule — % of contacted orders handled by top-5 closers vs seniors vs newcomers", 360)}
+        <div class="chart-card"><div class="chart-card-title">Golden rule — % of contacted orders handled by top-5 closers · seniors · newcomers</div>
+          <div style="display:grid;grid-template-columns:150px repeat(5,1fr);gap:8px;align-items:end;padding:10px 6px 0;font-size:13px;color:#94A3B8">
+            <div></div>${W.map(w => `<div style="text-align:center">${w.n}</div>`).join("")}
+            ${[["Top-5 closers","topCont",C.cyan],["Seniors (6+ mo)","senCont",C.indigo],["Newcomers (≤2 mo)","lowCont",PINK]].map(([l,k,c]) => `<div style="color:#F1F5F9;font-weight:600">${l}</div>${W.map(w => { const p = Math.round(w[k]/w.cont*100); return `<div style="text-align:center"><div style="font-size:22px;font-weight:800;color:${c}">${p}%</div><div style="height:10px;border-radius:5px;background:rgba(148,163,184,.12);margin-top:4px"><div style="width:${p}%;height:100%;border-radius:5px;background:${c}"></div></div></div>`; }).join("")}`).join("")}
+          </div></div>
         ${chartCard("faCh2", "Calls by top-5 closers vs everyone else, week by week", 360)}
       </div>
       <div class="charts-grid cols-2">
@@ -2210,11 +2214,6 @@
     const lbl = W.map(w => w.n);
     const base = (yTitle, max) => ({ x: { ticks: { color: C.textSec }, grid: { color: C.gridLine } }, y: { max, ticks: { color: C.textSec }, grid: { color: C.gridLine }, title: { display: !!yTitle, text: yTitle, color: C.textMuted } } });
     const leg = { labels: { color: C.textSec } };
-    charts.push(new Chart($("#faCh1"), { type: "bar", data: { labels: lbl, datasets: [
-      { label: "Top-5 closers", data: W.map(w => Math.round(w.topCont / w.cont * 100)), backgroundColor: C.cyan },
-      { label: "Seniors (6+ mo)", data: W.map(w => Math.round(w.senCont / w.cont * 100)), backgroundColor: C.indigo },
-      { label: "Newcomers (≤2 mo)", data: W.map(w => Math.round(w.lowCont / w.cont * 100)), backgroundColor: PINK },
-    ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: base("% of contacted orders", 100) } }));
     charts.push(new Chart($("#faCh2"), { type: "bar", data: { labels: lbl, datasets: [
       { label: "Top-5 closers", data: W.map(w => w.top), backgroundColor: C.cyan, stack: "s" },
       { label: "Everyone else", data: W.map(w => w.calls - w.top), backgroundColor: PINK, stack: "s" },
