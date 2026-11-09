@@ -108,7 +108,7 @@
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.dataset.db;
-      const db = (raw.startsWith("init") || raw === "overview" || raw === "standards" || raw === "pilot" || raw === "longevity") ? raw : parseInt(raw);
+      const db = (raw.startsWith("init") || raw === "overview" || raw === "standards" || raw === "pilot" || raw === "longevity" || raw === "french") ? raw : parseInt(raw);
       navItems.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeDb = db;
@@ -2129,6 +2129,102 @@
     if (activeDb === "standards") renderStandards();
     if (activeDb === "pilot") renderPilot();
     if (activeDb === "longevity") renderLongevityCEO();
+    if (activeDb === "french") renderFrenchAtelier();
+  }
+
+
+  // ===========================================================================
+  // FRENCH ATELIER — Sales Analysis 2–8 Nov 2026 vs equivalent Mon–Sun weeks
+  // ===========================================================================
+  function renderFrenchAtelier() {
+    const PINK = "#FF2D95", PINKF = "rgba(255,45,149,0.18)";
+    const W = [
+      { n: "Aug week",      leads: null, cont: 173, calls: 2550, retries: 2432, acq: 14, reps: 6,  top: 2078, topCont: 142, senCont: 173, lowCont: 0,  tops: { Azizi: 381, Levy: 536, Levite: 562, Petit: 412, Mokla: 187 } },
+      { n: "31 Aug–6 Sep",  leads: 654,  cont: 208, calls: 2668, retries: 2606, acq: 19, reps: 8,  top: 1806, topCont: 158, senCont: 194, lowCont: 0,  tops: { Azizi: 429, Levy: 203, Levite: 440, Petit: 611, Mokla: 123 } },
+      { n: "28 Sep–4 Oct",  leads: 560,  cont: 195, calls: 4098, retries: 4017, acq: 18, reps: 8,  top: 2297, topCont: 142, senCont: 175, lowCont: 17, tops: { Azizi: 556, Levy: 444, Levite: 450, Petit: 542, Mokla: 305 } },
+      { n: "5–11 Oct",      leads: 821,  cont: 262, calls: 3768, retries: 4297, acq: 24, reps: 10, top: 1981, topCont: 179, senCont: 216, lowCont: 43, tops: { Azizi: 674, Levy: 441, Levite: 89,  Petit: 504, Mokla: 273 } },
+      { n: "2–8 Nov",       leads: 560,  cont: 160, calls: 2592, retries: 2952, acq: 4,  reps: 6,  top: 1115, topCont: 114, senCont: 117, lowCont: 42, tops: { Azizi: 482, Levy: 274, Levite: 0,   Petit: 359, Mokla: 0 } },
+    ];
+    const DAYS = [
+      { d: "Mon 2", leads: 88, cont: 46, calls: 863, acq: 2 }, { d: "Tue 3", leads: 71, cont: 26, calls: 530, acq: 2 },
+      { d: "Wed 4", leads: 16, cont: 20, calls: 329, acq: 1 }, { d: "Thu 5", leads: 165, cont: 23, calls: 313, acq: 1 },
+      { d: "Fri 6", leads: 126, cont: 31, calls: 414, acq: 0 }, { d: "Sat 7", leads: 40, cont: 10, calls: 118, acq: 0 }, { d: "Sun 8", leads: 54, cont: 8, calls: 25, acq: 0 },
+    ];
+    const now = W[4], ref = W[2], oct = W[3];
+    const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+    const f1 = (v) => v === null || v === undefined ? "—" : v.toFixed(1);
+    const n = (v) => v === null || v === undefined ? "—" : v.toLocaleString();
+    const hi = (v) => ({ v, cls: "neon-pct" });
+
+    const rows = [
+      ["Leads", ...W.map(w => n(w.leads))],
+      ["Contacted orders", ...W.map(w => n(w.cont))],
+      ["Acquisitions (new)", ...W.map(w => n(w.acq))],
+      ["Acq / contacted", ...W.map(w => pct(w.acq, w.cont))],
+      ["Calls", ...W.map(w => n(w.calls))],
+      ["Retries", ...W.map(w => n(w.retries))],
+      ["Calls per lead", ...W.map(w => w.leads ? f1(w.calls / w.leads) : "—")],
+      ["Retries per lead", ...W.map(w => w.leads ? f1(w.retries / w.leads) : "—")],
+      ["Calls per contacted order (lead-volume neutral)", ...W.map(w => f1(w.calls / w.cont))],
+      ["Reps who logged calls", ...W.map(w => n(w.reps))],
+      ["Calls by top-5 closers", ...W.map(w => n(w.top))],
+      ["Calls by everyone else", ...W.map(w => n(w.calls - w.top))],
+      ["Top-5 share of calls", ...W.map(w => pct(w.top, w.calls))],
+      ["Golden rule: % contacted handled by top-5 closers", ...W.map(w => pct(w.topCont, w.cont))],
+      ["% contacted handled by seniors (6+ months)", ...W.map(w => pct(w.senCont, w.cont))],
+      ["% contacted handled by newcomers (≤2 months)", ...W.map(w => pct(w.lowCont, w.cont))],
+    ].map(r => r.map((c, i) => i === 5 ? hi(c) : c));
+
+    const repRows = ["Azizi", "Levy", "Levite", "Petit", "Mokla"].map(r => [r, ...W.map((w, i) => i === 4 ? hi(n(w.tops[r])) : n(w.tops[r]))]);
+    const dayRows = DAYS.map(d => [d.d, n(d.leads), n(d.cont), n(d.calls), f1(d.calls / d.leads), f1(d.calls / d.cont), n(d.acq)]);
+
+    container.innerHTML = `<div class="dashboard-view">
+      ${headline("French Atelier · 2–8 Nov 2026: 4 acquisitions vs 14–24 in every equivalent week",
+        "Regular courses only, Culture Capsules e-commerce excluded. Apples to apples: 2–8 Nov had exactly the same lead count as 28 Sep–4 Oct (560) and produced 4 acquisitions instead of 18.")}
+      ${initKpiRow([
+        { label: "Acquisitions", value: "4", sub: "vs 18 on identical leads (28 Sep–4 Oct)", cls: "accent-red" },
+        { label: "Calls, same lead volume", value: "2,592", sub: "vs 4,098 (−37%) · 4.6 vs 7.3 calls/lead", cls: "accent-red" },
+        { label: "Calls by top-5 closers", value: "1,115", sub: "vs 1,806–2,297 every other week", cls: "accent-red" },
+        { label: "Golden rule: % contacted by top-5", value: "71%", sub: "Rosen standard ≥75% · IIBS ≥60%", cls: "accent-amber" },
+        { label: "% contacted by newcomers", value: "26%", sub: "0% Aug/Sep · 9% late Sep · 16% Oct", cls: "accent-red" },
+      ])}
+      <div class="verdict-banner"><div class="verdict-label">What happened</div><div class="verdict-text">
+        Same leads, 37% fewer calls, and the calls that were made came from the wrong people. Mokla and Levite logged 0 calls, de Montclair handled 3 orders instead of 30–37, Levy made 38% fewer calls than in October, and three reps with 0–2 months tenure made 57% of all calls for 1 acquisition. Seniors convert 8.5% of contacted orders over 8 months; newcomers 1.6%. 69% of the week's leads arrived Thu–Sun, when calls per lead fell to 1.9 / 3.3 / 3.0 / 0.5 and nobody closed.
+      </div></div>
+      <div class="charts-grid cols-2">
+        ${chartCard("faCh1", "Golden rule — % of contacted orders handled by top-5 closers vs seniors vs newcomers", 360)}
+        ${chartCard("faCh2", "Calls by top-5 closers vs everyone else, week by week", 360)}
+      </div>
+      <div class="charts-grid cols-2">
+        ${chartCard("faCh3", "Apples to apples: calls per lead vs daily lead volume, 2–8 Nov", 360)}
+        ${chartCard("faCh4", "Calls per top closer, week by week", 360)}
+      </div>
+      ${dataTable("Week vs week (Mon–Sun) — rep exports + Gal workbook", ["Metric", ...W.map(w => w.n)], rows)}
+      ${dataTable("Calls by top closer", ["Rep", ...W.map(w => w.n)], repRows)}
+      ${dataTable("2–8 Nov, day by day", ["Day", "Leads", "Contacted", "Calls", "Calls / lead", "Calls / contacted", "Acq"], dayRows)}
+      <div class="verdict-banner"><div class="verdict-label">Data notes</div><div class="verdict-text">
+        Top-5 closers: Azizi Malek, Marc Levy, Eric Levite, Anais Petit, Sara Mokla (8-month acq/contacted 7.9–12.4%). Seniors = the five plus Camille de Montclair (6+ months). Newcomers = Lemma, Lacroix, Stefaoui, Dubois (0–2 months, 8-month acq/contacted 0–6.7% on tiny volume). Calls per lead moves with daily lead volume, so the lead-volume-neutral read is calls per contacted order (16.2 vs 14.4–21.0) and the like-for-like week 28 Sep–4 Oct (560 leads both weeks). Aug export has no lead count. Shift hours are not in any export; reps who logged calls and daily calls per lead are the manpower proxies.
+      </div></div>
+    </div>`;
+
+    const lbl = W.map(w => w.n);
+    const base = (yTitle, max) => ({ x: { ticks: { color: C.textSec }, grid: { color: C.gridLine } }, y: { max, ticks: { color: C.textSec }, grid: { color: C.gridLine }, title: { display: !!yTitle, text: yTitle, color: C.textMuted } } });
+    const leg = { labels: { color: C.textSec } };
+    charts.push(new Chart($("#faCh1"), { type: "bar", data: { labels: lbl, datasets: [
+      { label: "Top-5 closers", data: W.map(w => Math.round(w.topCont / w.cont * 100)), backgroundColor: C.cyan },
+      { label: "Seniors (6+ mo)", data: W.map(w => Math.round(w.senCont / w.cont * 100)), backgroundColor: C.indigo },
+      { label: "Newcomers (≤2 mo)", data: W.map(w => Math.round(w.lowCont / w.cont * 100)), backgroundColor: PINK },
+    ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: base("% of contacted orders", 100) } }));
+    charts.push(new Chart($("#faCh2"), { type: "bar", data: { labels: lbl, datasets: [
+      { label: "Top-5 closers", data: W.map(w => w.top), backgroundColor: C.cyan, stack: "s" },
+      { label: "Everyone else", data: W.map(w => w.calls - w.top), backgroundColor: PINK, stack: "s" },
+    ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: base("calls") } }));
+    charts.push(new Chart($("#faCh3"), { data: { labels: DAYS.map(d => d.d), datasets: [
+      { type: "bar", label: "Leads", data: DAYS.map(d => d.leads), backgroundColor: "rgba(148,163,184,0.35)", yAxisID: "y" },
+      { type: "line", label: "Calls per lead", data: DAYS.map(d => +(d.calls / d.leads).toFixed(1)), borderColor: PINK, backgroundColor: PINK, yAxisID: "y1", tension: 0.3, pointRadius: 5 },
+    ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: { x: { ticks: { color: C.textSec }, grid: { color: C.gridLine } }, y: { position: "left", ticks: { color: C.textSec }, grid: { color: C.gridLine }, title: { display: true, text: "leads", color: C.textMuted } }, y1: { position: "right", ticks: { color: PINK }, grid: { drawOnChartArea: false }, title: { display: true, text: "calls per lead", color: PINK } } } } }));
+    const repCols = { Azizi: C.cyan, Levy: C.amber, Levite: C.emerald, Petit: C.indigo, Mokla: C.purple };
+    charts.push(new Chart($("#faCh4"), { type: "line", data: { labels: lbl, datasets: Object.keys(repCols).map(r => ({ label: r, data: W.map(w => w.tops[r]), borderColor: repCols[r], backgroundColor: repCols[r], tension: 0.3, pointRadius: 4 })) }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: base("calls") } }));
   }
 
   // ── Initiative KPI Row (supports cls for card accents and sub for subtitles) ──
