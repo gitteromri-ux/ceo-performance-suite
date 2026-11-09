@@ -2201,7 +2201,11 @@
       </div>
       <div class="charts-grid cols-2">
         ${chartCard("faCh3", "Apples to apples: calls per lead vs daily lead volume, 2–8 Nov", 360)}
-        ${chartCard("faCh4", "Calls per top closer, week by week", 360)}
+        <div class="chart-card"><div class="chart-card-title">Calls by top closer, same weeks</div>
+          <div style="display:grid;grid-template-columns:110px repeat(5,1fr);gap:8px 6px;align-items:center;padding:10px 6px 0;font-size:13px;color:#94A3B8">
+            <div></div>${W.map((w,i) => `<div style="text-align:center;${i===4?'color:'+PINK+';font-weight:700':''}">${w.n}</div>`).join("")}
+            ${["Levite","Mokla","Levy","Azizi","Petit"].map(r => `<div style="color:#F1F5F9;font-weight:600;font-size:15px">${r}</div>${W.map((w,i) => { const v = w.tops[r]; const prev = i ? W[i-1].tops[r] : null; const arrow = prev === null ? "" : v > prev ? "▲" : v < prev ? "▼" : "="; const col = i===4 ? (v===0 ? "#EF4444" : PINK) : "#F1F5F9"; return `<div style="text-align:center"><span style="font-size:26px;font-weight:800;color:${col}">${v.toLocaleString()}</span> <span style="font-size:12px;color:${arrow==="▲"?C.emerald:arrow==="▼"?"#EF4444":"#94A3B8"}">${arrow}</span></div>`; }).join("")}`).join("")}
+          </div></div>
       </div>
       ${dataTable("Week vs week (Mon–Sun) — rep exports + Gal workbook", ["Metric", ...W.map(w => w.n)], rows)}
       ${dataTable("Calls by top closer", ["Rep", ...W.map(w => w.n)], repRows)}
@@ -2222,8 +2226,6 @@
       { type: "bar", label: "Leads", data: DAYS.map(d => d.leads), backgroundColor: "rgba(148,163,184,0.35)", yAxisID: "y" },
       { type: "line", label: "Calls per lead", data: DAYS.map(d => +(d.calls / d.leads).toFixed(1)), borderColor: PINK, backgroundColor: PINK, yAxisID: "y1", tension: 0.3, pointRadius: 5 },
     ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: { x: { ticks: { color: C.textSec }, grid: { color: C.gridLine } }, y: { position: "left", ticks: { color: C.textSec }, grid: { color: C.gridLine }, title: { display: true, text: "leads", color: C.textMuted } }, y1: { position: "right", ticks: { color: PINK }, grid: { drawOnChartArea: false }, title: { display: true, text: "calls per lead", color: PINK } } } } }));
-    const repCols = { Azizi: C.cyan, Levy: C.amber, Levite: C.emerald, Petit: C.indigo, Mokla: C.purple };
-    charts.push(new Chart($("#faCh4"), { type: "line", data: { labels: lbl, datasets: Object.keys(repCols).map(r => ({ label: r, data: W.map(w => w.tops[r]), borderColor: repCols[r], backgroundColor: repCols[r], tension: 0.3, pointRadius: 4 })) }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: leg }, scales: base("calls") } }));
   }
 
   // ── Initiative KPI Row (supports cls for card accents and sub for subtitles) ──
